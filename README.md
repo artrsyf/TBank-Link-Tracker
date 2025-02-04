@@ -1,0 +1,1 @@
+# backend-academy-2025-spring-scala-template
