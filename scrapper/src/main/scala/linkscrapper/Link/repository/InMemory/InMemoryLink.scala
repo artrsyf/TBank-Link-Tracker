@@ -13,22 +13,24 @@ final class InMemoryLinkRepository(
     data: Ref[IO, Map[String, model.Link]]
 ) extends repository.LinkRepository[IO]:
     override def create(linkEntity: entity.Link, chatId: Long): IO[model.Link] = 
-        IO.println(s"Successfully created link with URL: ${linkEntity.Url}")
-
         for 
             linkModel <- IO.pure(
                 dto.LinkEntityToModel(linkEntity, chatId)
             )
-            _ <- data.update(_ + (linkModel.Url -> linkModel))
+            _ <- data.update(_ + (linkModel.url -> linkModel))
+            _ <- IO.println(s"Successfully created link with URL: ${linkEntity.url}")
         yield linkModel
 
-    override def delete(linkUrl: String): IO[Unit] = 
-        IO.println(s"Successfully deleted link with url: $linkUrl")
-
-        data.update(_.removed(linkUrl))
+    override def delete(linkUrl: String): IO[model.Link] = 
+        for {
+            maybeLink <- data.get.map(_.get(linkUrl))
+            link <- IO.fromOption(maybeLink)(new Exception(s"Link not found: $linkUrl"))
+            _ <- data.update(_ - linkUrl)
+            _ <- IO.println(s"Successfully deleted link with url: $linkUrl")
+        } yield link
 
     override def getLinksByChatId(chatId: Long): IO[model.Links] = 
         for
             links <- data.get
-            selectedChatLinks = links.values.filter(_.ChatId == chatId).toList
+            selectedChatLinks = links.values.filter(_.chatId == chatId).toList
         yield selectedChatLinks
