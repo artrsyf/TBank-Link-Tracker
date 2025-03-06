@@ -12,5 +12,5 @@ final case class ApiErrorResponse(
 
 def ChatEntityToModel(chatEntity: entity.Chat): model.Chat = 
     model.Chat(
-        ChatId = chatEntity.ChatId,
+        chatId = chatEntity.chatId,
     )

@@ -12,13 +12,13 @@ final class InMemoryChatRepository(
     data: Ref[IO, Map[Long, model.Chat]]
 ) extends repository.ChatRepository[IO]:
     override def create(chatEntity: entity.Chat): IO[model.Chat] = 
-        IO.println(s"Successfully created chat with id: ${chatEntity.ChatId}")
+        IO.println(s"Successfully created chat with id: ${chatEntity.chatId}")
 
         for 
             chatModel <- IO.pure(
                 dto.ChatEntityToModel(chatEntity)
             )
-            _ <- data.update(_ + (chatModel.ChatId -> chatModel))
+            _ <- data.update(_ + (chatModel.chatId -> chatModel))
         yield chatModel
 
     override def delete(chatId: Long): IO[Unit] = 
