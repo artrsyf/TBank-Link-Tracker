@@ -3,15 +3,13 @@ package linkscrapper.Chat.delivery.http
 import linkscrapper.Chat.usecase.ChatUsecase
 import linkscrapper.Chat.domain.dto
 import linkscrapper.Chat.domain.entity
+import linkscrapper.pkg.Controller.Controller
 
 import sttp.tapir.server.ServerEndpoint
 import cats.effect.IO
 import sttp.tapir.*
 import sttp.tapir.json.tethysjson.jsonBody
 import sttp.model.StatusCode
-
-trait Controller[F[_]]:
-  def endpoints: List[ServerEndpoint[Any, F]]
 
 object ChatEndpoints:
     val createChatEndpoint: Endpoint[
