@@ -8,7 +8,8 @@ import sttp.tapir.server.http4s.Http4sServerInterpreter
 
 import linkscrapper.config.AppConfig
 import linkscrapper.wiring.{Repositories, Usecases}
-import linkscrapper.Chat.delivery.http.*
+import linkscrapper.Chat.delivery.http.ChatHandler
+import linkscrapper.Link.delivery.http.LinkHandler
 
 object Main extends IOApp:
     override def run(args: List[String]): IO[ExitCode] = 
@@ -19,7 +20,8 @@ object Main extends IOApp:
             endpoints <-
                 IO {
                     List(
-                        ChatHandler.make(usecases.chatUsecase)
+                        ChatHandler.make(usecases.chatUsecase),
+                        LinkHandler.make(usecases.linkUsecase),
                     ).flatMap(_.endpoints)
                 }
 
