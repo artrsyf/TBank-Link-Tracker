@@ -3,38 +3,58 @@ package linkscrapper.Link.domain.dto
 import linkscrapper.Link.domain.model
 import linkscrapper.Link.domain.entity
 
+import tethys.{JsonReader, JsonWriter}
+import sttp.tapir.Schema
+
 /*TODO Separate*/
 type Tags = List[String]
 type Filters = List[String]
 
-final case class CreateLinkRequest(
-    Id: Long,
-    Url: String,
-    Tags: Tags,
-    Filters: Filters,
-)
+/*TODO Separate*/
+final case class ApiErrorResponse(
+    error: String,
+) derives Schema, JsonReader, JsonWriter
 
-def LinkCreateRequestToEntity(createRequest: CreateLinkRequest): entity.Link = 
+type ListLinksResponse = List[LinkResponse]
+
+final case class AddLinkRequest(
+    link: String,
+    tags: Tags,
+    filters: Filters,
+) derives Schema, JsonReader, JsonWriter
+
+final case class LinkResponse(
+    id: Long,
+    url: String,
+    tags: Tags,
+    filters: Filters,
+) derives Schema, JsonReader, JsonWriter
+
+final case class RemoveLinkRequest(
+    link: String,
+) derives Schema, JsonReader, JsonWriter
+
+def LinkAddRequestToEntity(createRequest: AddLinkRequest): entity.Link = 
     entity.Link(
-        Id = createRequest.Id,
-        Url = createRequest.Url,
-        Tags = createRequest.Tags,
-        Filters = createRequest.Filters,
+        id = 1,
+        url = createRequest.link,
+        tags = createRequest.tags,
+        filters = createRequest.filters,
     )
 
 def LinkEntityToModel(linkEntity: entity.Link, chatId: Long): model.Link = 
     model.Link(
-        Id = linkEntity.Id,
-        ChatId = chatId,
-        Url = linkEntity.Url,
-        Tags = linkEntity.Tags,
-        Filters = linkEntity.Filters,
+        id = linkEntity.id,
+        chatId = chatId,
+        url = linkEntity.url,
+        tags = linkEntity.tags,
+        filters = linkEntity.filters,
     )
 
 def LinkModelToEntity(linkModel: model.Link): entity.Link = 
     entity.Link(
-        Id = linkModel.Id,
-        Url = linkModel.Url,
-        Tags = linkModel.Tags,
-        Filters = linkModel.Filters,
+        id = linkModel.id,
+        url = linkModel.url,
+        tags = linkModel.tags,
+        filters = linkModel.filters,
     )

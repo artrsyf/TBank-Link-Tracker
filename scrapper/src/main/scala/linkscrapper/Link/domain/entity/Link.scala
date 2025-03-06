@@ -7,8 +7,8 @@ type Filters = List[String]
 type Links = List[Link]
 
 final case class Link(
-    Id: Long,
-    Url: String,
-    Tags: Tags,
-    Filters: Filters,
+    id: Long,
+    url: String,
+    tags: Tags,
+    filters: Filters,
 )
