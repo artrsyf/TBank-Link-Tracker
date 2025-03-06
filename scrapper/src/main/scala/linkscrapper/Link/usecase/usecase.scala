@@ -8,23 +8,26 @@ import cats.effect.IO
 import javax.print.DocFlavor.CHAR_ARRAY
 
 trait LinkUsecase[F[_]]:
-    def addLink(createRequest: dto.CreateLinkRequest, chatId: Long): F[entity.Link]
-    def removeLink(linkUrl: String, chatId: Long): F[Unit]
+    def addLink(createRequest: dto.AddLinkRequest, chatId: Long): F[entity.Link]
+    def removeLink(linkUrl: String, chatId: Long): IO[entity.Link]
     def getLinksByChatId(chatId: Long): F[entity.Links]
 
 object LinkUsecase:
     final private class Impl(
         linkRepo: LinkRepository[IO],
     ) extends LinkUsecase[IO]:
-        override def addLink(createRequest: dto.CreateLinkRequest, chatId: Long): IO[entity.Link] = 
+        override def addLink(createRequest: dto.AddLinkRequest, chatId: Long): IO[entity.Link] = 
             for 
-                linkEntity <- IO.pure(dto.LinkCreateRequestToEntity(createRequest))
+                linkEntity <- IO.pure(dto.LinkAddRequestToEntity(createRequest))
                 _ <- linkRepo.create(linkEntity, chatId)
             yield linkEntity
 
 
-        override def removeLink(linkUrl: String, chatId: Long): IO[Unit] = 
-            linkRepo.delete(linkUrl)
+        override def removeLink(linkUrl: String, chatId: Long): IO[entity.Link] = 
+            for 
+                deletedLinkModel <- linkRepo.delete(linkUrl)
+                deletedLinkEntity = dto.LinkModelToEntity(deletedLinkModel)
+            yield deletedLinkEntity
 
         override def getLinksByChatId(chatId: Long): IO[entity.Links] = 
             for 
