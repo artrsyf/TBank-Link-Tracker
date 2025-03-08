@@ -6,15 +6,16 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
-import linkscrapper.config.AppConfig
+import linkscrapper.config.{AppConfig, SchedulerConfig}
 import linkscrapper.wiring.{Repositories, Usecases}
 import linkscrapper.Chat.delivery.http.ChatHandler
 import linkscrapper.Link.delivery.http.LinkHandler
+import linkscrapper.pkg.Client.Scheduler.QuartzScheduler
 
 object Main extends IOApp:
     override def run(args: List[String]): IO[ExitCode] = 
         for {
-            config <- AppConfig.load
+            appConfig <- AppConfig.load
             repositories <- Repositories.make
             usecases = Usecases.make(repositories)
             endpoints <-
@@ -28,8 +29,8 @@ object Main extends IOApp:
             routes = Http4sServerInterpreter[IO]()
                 .toRoutes(endpoints)
 
-            port <- getPortSafe(config.port)
-            _ <-
+            port <- getPortSafe(appConfig.server.port)
+            _ <- IO.race(
                 EmberServerBuilder
                 .default[IO]
                 .withHost(Host.fromString("localhost").get)
@@ -41,7 +42,10 @@ object Main extends IOApp:
                     s"Server available at http://localhost:${server.address.getPort}"
                     )
                 )
-                .useForever
+                .useForever,
+
+                QuartzScheduler.runScheduler(appConfig.scheduler)
+            )
     } yield ExitCode.Success
 
     private def getPortSafe(v: Int): IO[Port] =

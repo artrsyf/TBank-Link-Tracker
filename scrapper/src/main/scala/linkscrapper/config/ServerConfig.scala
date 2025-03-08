@@ -5,11 +5,10 @@ import pureconfig.{ConfigReader, ConfigSource}
 import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
-final case class AppConfig(
-  scheduler: SchedulerConfig,
-  server: ServerConfig,
+final case class ServerConfig(
+  port: Int,
 ) derives ConfigReader
 
-object AppConfig:
-  def load: IO[AppConfig] =
-    IO.delay(ConfigSource.default.loadOrThrow[AppConfig])
+object ServerConfig:
+  def load: IO[ServerConfig] =
+    IO.delay(ConfigSource.default.loadOrThrow[ServerConfig])
