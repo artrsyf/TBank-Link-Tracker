@@ -10,7 +10,7 @@ import linkscrapper.config.{AppConfig, SchedulerConfig}
 import linkscrapper.wiring.{Repositories, Usecases}
 import linkscrapper.Chat.delivery.http.ChatHandler
 import linkscrapper.Link.delivery.http.LinkHandler
-import linkscrapper.pkg.Client.Scheduler.QuartzScheduler
+import linkscrapper.pkg.Scheduler.QuartzScheduler
 
 object Main extends IOApp:
     override def run(args: List[String]): IO[ExitCode] = 

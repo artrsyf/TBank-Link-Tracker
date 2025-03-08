@@ -1,4 +1,4 @@
-package linkscrapper.pkg.Client.Scheduler
+package linkscrapper.pkg.Scheduler
 
 import cats.effect.IO
 import cats.effect.std.Queue
