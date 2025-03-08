@@ -48,6 +48,10 @@ object Dependencies {
   val telegramiumCore = "io.github.apimorphism" %% "telegramium-core" % telegramiumVersion
   val telegramiumHigh = "io.github.apimorphism" %% "telegramium-high" % telegramiumVersion
 
+  val quartzVersion = "1.0.4"
+
+  val quartz = "com.itv" % "quartz4s-core_3" % quartzVersion
+
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
     catsEffect,
@@ -67,6 +71,7 @@ object Dependencies {
     pureConfigCore,
     pureConfigGeneric,
     telegramiumCore,
-    telegramiumHigh
+    telegramiumHigh,
+    quartz,
   )
 }
