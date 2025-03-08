@@ -5,6 +5,7 @@ import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
 import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
 import linkscrapper.config.{AppConfig, SchedulerConfig}
 import linkscrapper.wiring.{Repositories, Usecases}
@@ -26,8 +27,14 @@ object Main extends IOApp:
                     ).flatMap(_.endpoints)
                 }
 
+            swaggerEndpoint = SwaggerInterpreter().fromServerEndpoints[IO](
+                endpoints,
+                "Scrapper API",
+                "1.0.0"
+            )
+
             routes = Http4sServerInterpreter[IO]()
-                .toRoutes(endpoints)
+                .toRoutes(swaggerEndpoint ++ endpoints)
 
             port <- getPortSafe(appConfig.server.port)
             _ <- IO.race(
