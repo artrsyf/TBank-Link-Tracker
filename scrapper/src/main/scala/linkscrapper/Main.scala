@@ -12,7 +12,9 @@ import linkscrapper.config.{AppConfig, SchedulerConfig}
 import linkscrapper.wiring.{Repositories, Usecases}
 import linkscrapper.Chat.delivery.http.ChatHandler
 import linkscrapper.Link.delivery.http.LinkHandler
+import linkscrapper.pkg.Client.LinkClient
 import linkscrapper.pkg.Client.GitHubClient.GitHubClient
+import linkscrapper.pkg.Client.StackOverflowClient.StackOverflowClient
 import linkscrapper.pkg.Scheduler.QuartzScheduler
 
 object Main extends IOApp:
@@ -22,14 +24,20 @@ object Main extends IOApp:
             repositories <- Repositories.make
             usecases = Usecases.make(repositories)
 
-            githubClient <- HttpClientCatsBackend.resource[IO]()
-                .use { backend =>
-                    IO(GitHubClient.make(backend))
-                }
+            backend <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
+
+            githubClient <- IO(GitHubClient.make(backend))
+            stackoverflowClient <- IO(StackOverflowClient.make(backend))
+
+            clients = Map[String, LinkClient[IO]](
+                "https://github.com/" -> githubClient,
+                "https://stackoverflow.com/" -> stackoverflowClient,
+            )
             scheduler = QuartzScheduler(
                 appConfig.scheduler,
                 usecases.linkUsecase,
-                githubClient,
+                clients,
+                backend,
             )
             endpoints <-
                 IO {

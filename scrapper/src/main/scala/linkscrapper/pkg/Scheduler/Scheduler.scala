@@ -10,12 +10,17 @@ import com.itv.scheduler.extruder.semiauto._
 import org.quartz.{CronExpression, JobKey, TriggerKey}
 
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
+import sttp.client3._
+import sttp.tapir.json.tethysjson
+import tethys._
+import tethys.jackson._
 
 import java.time.Instant
 
-import linkscrapper.pkg.Client.GitHubClient.GitHubClient
+import linkscrapper.pkg.Client.LinkClient
 import linkscrapper.config.SchedulerConfig
 import linkscrapper.Link.usecase.LinkUsecase
+import linkscrapper.Link.domain.dto
 
 sealed trait ParentJob
 case object CronJob extends ParentJob
@@ -28,33 +33,67 @@ object ParentJob {
 class QuartzScheduler(
   schedulerConfig: SchedulerConfig,
   linkUsecase: LinkUsecase[IO],
-  githubClient: GitHubClient[IO],
+  clients: Map[String, LinkClient[IO]],
+  backend: SttpBackend[IO, Any],
 ) {
+  private def sendUpdatedLinks(linkUpdates: List[dto.LinkUpdate]): IO[Unit] = 
+    val request = basicRequest
+      .post(uri"http://localhost:8081/updates")
+      .body(linkUpdates.asJson)
+      .contentType("application/json")
+
+    for
+      _ <- IO.delay(println(s"Sending updates: ${linkUpdates.asJson.toString}"))
+      response <- backend.send(request).attempt
+      _ <- response match {
+        case Right(resp) if resp.code.isSuccess =>
+          IO.delay(println(s"Successfully sent updates: ${resp.body}"))
+        case Right(resp) =>
+          IO.delay(println(s"Failed to send updates. Status: ${resp.code}, Body: ${resp.body}"))
+        case Left(error) =>
+          IO.delay(println(s"Error sending updates: ${error.getMessage}"))
+      }
+    yield ()
+
   private def fetchLinkUpdates: IO[Unit] =
     for {
       _ <- IO.delay(println("Scheduled link fetch"))
       links <- linkUsecase.getLinks
+      _ <- IO.delay(println(s"Links: $links"))
       updatedLinks <- links.traverse { link =>
-        val parts = link.url.stripPrefix("https://github.com/").split("/")
-        if (parts.length >= 2) {
-          val owner = parts(0)
-          val repo = parts(1)
-          
-          githubClient.getRepoUpdate(owner, repo).flatMap {
-            case Right(repo) =>
-              val githubUpdatedTime = Instant.parse(repo.updated_at)
-              if (githubUpdatedTime.isAfter(link.updatedAt)) { 
-                val updatedLink = link.copy(
-                  updatedAt = githubUpdatedTime,
-                )
-                linkUsecase.updateLink(updatedLink).map(Some(_))
-              } else IO.pure(None)
-
-            case Left(_) => IO.pure(None)
-          }
-        } else IO.pure(None)
+        println(s"link: $link")
+        clients.collectFirst {
+          case (prefix, client) if link.url.startsWith(prefix) =>
+            println(s"Choose client ${client.getClass().toString()} for url $link.url")
+            client.getLastUpdate(link.url).flatMap {
+              case Right(updatedTime) => 
+                if (updatedTime.isAfter(link.updatedAt)) then
+                  val updatedLink = link.copy(updatedAt = updatedTime)
+                  linkUsecase.updateLink(updatedLink).map(Some(_))
+                else
+                  IO.pure(None)
+              case Left(error) => 
+                IO.pure(None)
+            }
+        }.getOrElse(IO.pure(None))
       }
+      groupedLinks = links.groupBy(_.url)
+      linkUpdates = groupedLinks.flatMap { case (url, linkList) =>
+        val tgChatIds = linkList.map(link => link.chatId).distinct
+
+        if (tgChatIds.nonEmpty) {
+          Some(dto.LinkUpdate(
+            url = url,
+            description = "Got update!",
+            tgChatIds = tgChatIds,
+          ))
+        } else {
+          None
+        }
+      }.toList
       _ <- IO.delay(println(s"Updated links: ${updatedLinks.flatten}"))
+      _ <- sendUpdatedLinks(linkUpdates)
+      _ <- IO.delay(println(s"Sent updated links to tg bot"))
     } yield ()
 
   def runScheduler: IO[Unit] = {
