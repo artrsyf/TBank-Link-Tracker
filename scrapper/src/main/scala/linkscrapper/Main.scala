@@ -6,11 +6,13 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import sttp.client3.httpclient.cats.HttpClientCatsBackend
 
 import linkscrapper.config.{AppConfig, SchedulerConfig}
 import linkscrapper.wiring.{Repositories, Usecases}
 import linkscrapper.Chat.delivery.http.ChatHandler
 import linkscrapper.Link.delivery.http.LinkHandler
+import linkscrapper.pkg.Client.GitHubClient.GitHubClient
 import linkscrapper.pkg.Scheduler.QuartzScheduler
 
 object Main extends IOApp:
@@ -19,6 +21,16 @@ object Main extends IOApp:
             appConfig <- AppConfig.load
             repositories <- Repositories.make
             usecases = Usecases.make(repositories)
+
+            githubClient <- HttpClientCatsBackend.resource[IO]()
+                .use { backend =>
+                    IO(GitHubClient.make(backend))
+                }
+            scheduler = QuartzScheduler(
+                appConfig.scheduler,
+                usecases.linkUsecase,
+                githubClient,
+            )
             endpoints <-
                 IO {
                     List(
@@ -51,7 +63,7 @@ object Main extends IOApp:
                 )
                 .useForever,
 
-                QuartzScheduler.runScheduler(appConfig.scheduler)
+                scheduler.runScheduler
             )
     } yield ExitCode.Success
 

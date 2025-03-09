@@ -1,7 +1,9 @@
 package linkscrapper.pkg.Scheduler
 
 import cats.effect.IO
+import cats.syntax.traverse.*
 import cats.effect.std.Queue
+import cats.effect.kernel.Async
 
 import com.itv.scheduler._
 import com.itv.scheduler.extruder.semiauto._
@@ -13,6 +15,7 @@ import java.time.Instant
 
 import linkscrapper.pkg.Client.GitHubClient.GitHubClient
 import linkscrapper.config.SchedulerConfig
+import linkscrapper.Link.usecase.LinkUsecase
 
 sealed trait ParentJob
 case object CronJob extends ParentJob
@@ -22,8 +25,39 @@ object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
 }
 
-object QuartzScheduler {
-  def runScheduler(schedulerConfig: SchedulerConfig): IO[Unit] = {
+class QuartzScheduler(
+  schedulerConfig: SchedulerConfig,
+  linkUsecase: LinkUsecase[IO],
+  githubClient: GitHubClient[IO],
+) {
+  private def fetchLinkUpdates: IO[Unit] =
+    for {
+      _ <- IO.delay(println("Scheduled link fetch"))
+      links <- linkUsecase.getLinks
+      updatedLinks <- links.traverse { link =>
+        val parts = link.url.stripPrefix("https://github.com/").split("/")
+        if (parts.length >= 2) {
+          val owner = parts(0)
+          val repo = parts(1)
+          
+          githubClient.getRepoUpdate(owner, repo).flatMap {
+            case Right(repo) =>
+              val githubUpdatedTime = Instant.parse(repo.updated_at)
+              if (githubUpdatedTime.isAfter(link.updatedAt)) { 
+                val updatedLink = link.copy(
+                  updatedAt = githubUpdatedTime,
+                )
+                linkUsecase.updateLink(updatedLink).map(Some(_))
+              } else IO.pure(None)
+
+            case Left(_) => IO.pure(None)
+          }
+        } else IO.pure(None)
+      }
+      _ <- IO.delay(println(s"Updated links: ${updatedLinks.flatten}"))
+    } yield ()
+
+  def runScheduler: IO[Unit] = {
     val quartzProperties = new java.util.Properties()
     quartzProperties.setProperty("org.quartz.threadPool.threadCount", schedulerConfig.threadNumber.toString)
 
@@ -36,7 +70,7 @@ object QuartzScheduler {
       }
       _ <- schedulerResource.use { scheduler =>
         for {
-          _ <- scheduleCronJob(scheduler, schedulerConfig.cronExpression)
+          _ <- scheduleCronJob(scheduler)
           _ <- scheduleSingleJob(scheduler)
           _ <- processQueue(jobMessageQueue)
         } yield ()
@@ -44,12 +78,12 @@ object QuartzScheduler {
     } yield ()
   }
 
-  def scheduleCronJob(scheduler: QuartzTaskScheduler[IO, ParentJob], cronExpression: String): IO[Option[Instant]] =
+  def scheduleCronJob(scheduler: QuartzTaskScheduler[IO, ParentJob]): IO[Option[Instant]] =
     scheduler.scheduleJob(
       JobKey.jobKey("cron-job"),
       CronJob,
       TriggerKey.triggerKey("cron-job-trigger"),
-      CronScheduledJob(new CronExpression(cronExpression))
+      CronScheduledJob(new CronExpression(schedulerConfig.cronExpression))
     )
 
   def scheduleSingleJob(scheduler: QuartzTaskScheduler[IO, ParentJob]): IO[Option[Instant]] =
@@ -61,16 +95,11 @@ object QuartzScheduler {
     )
 
   def processQueue(queue: Queue[IO, ParentJob]): IO[Unit] = {
-    HttpClientCatsBackend.resource[IO]().use { backend =>
-      queue.take.flatMap {
-        case CronJob =>
-          GitHubClient.getRepoUpdate(backend, "typelevel", "cats-effect").flatMap {
-            case Right(repo) => IO.println(s"Repo last updated at: ${repo.updated_at}")
-            case Left(error) => IO.println(s"Error fetching repo update: $error")
-          }
-        case CheckJob =>
-          IO.println(s"Single job check")
-      }.foreverM
-    }
+    queue.take.flatMap {
+      case CronJob =>
+        fetchLinkUpdates
+      case CheckJob =>
+        IO.println(s"Single job check")
+    }.foreverM
   }
 }
