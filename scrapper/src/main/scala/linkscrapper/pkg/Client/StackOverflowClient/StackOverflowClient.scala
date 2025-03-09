@@ -1,7 +1,11 @@
 package linkscrapper.pkg.Client.StackOverflowClient
 
+import linkscrapper.pkg.Client.LinkClient
+
 import cats.effect.*
 import cats.syntax.functor._
+import cats.Monad
+
 import sttp.client3._
 import sttp.client3.impl.cats._
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
@@ -16,7 +20,20 @@ final case class StackOverflowResponse(items: List[StackOverflowQuestion]) deriv
 
 final case class StackOverflowQuestion(question_id: Long, title: String, link: String, last_activity_date: Long) derives JsonReader
 
-trait StackOverflowClient[F[_]]:
+trait StackOverflowClient[F[_]: Monad] extends LinkClient[F]:
+  override def getLastUpdate(url: String): F[Either[String, Instant]] = {
+    val requestParts = url.stripPrefix("https://stackoverflow.com/questions/").split("/")
+    if (requestParts.nonEmpty) {
+      val questionId = requestParts(0).toLong
+      getQuestionById(questionId).map {
+        case Right(question) => Right(Instant.ofEpochSecond(question.last_activity_date))
+        case Left(error)    => Left(error)
+      }
+    } else {
+      Monad[F].pure(Left("Invalid StackOverflow URL"))
+    }
+  }
+    
   def getQuestionById(id: Long): F[Either[String, StackOverflowQuestion]]
 
 object StackOverflowClient:

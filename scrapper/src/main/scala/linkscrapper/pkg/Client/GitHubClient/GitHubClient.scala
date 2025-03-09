@@ -1,10 +1,13 @@
 package linkscrapper.pkg.Client.GitHubClient
 
+import linkscrapper.pkg.Client.LinkClient
+
 import cats.effect.*
 import cats.syntax.functor._
 import cats.effect.kernel.Async
 import cats.Parallel
 import cats.effect.unsafe.implicits.global
+import cats.Monad
 
 import sttp.client3._
 import sttp.client3.impl.cats._
@@ -14,10 +17,24 @@ import sttp.tapir.json.tethysjson
 
 import tethys._
 import tethys.jackson._
+import java.time.Instant
 
 final case class GitHubRepo(updated_at: String) derives JsonReader
 
-trait GitHubClient[F[_]]:
+trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
+  override def getLastUpdate(url: String): F[Either[String, Instant]] = 
+    val requestParts = url.stripPrefix("https://github.com/").split("/")
+    if (requestParts.length >= 2) {
+      val owner = requestParts(0)
+      val repo = requestParts(1)
+      getRepoUpdate(owner, repo).map {
+        case Right(repo) => Right(Instant.parse(repo.updated_at))
+        case Left(error) => Left(error)
+      }
+    } else {
+      Monad[F].pure(Left("Invalid GitHub URL"))
+    }
+
   def getRepoUpdate(owner: String, repo: String): F[Either[String, GitHubRepo]]
 
 object GitHubClient:
