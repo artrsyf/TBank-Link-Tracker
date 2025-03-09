@@ -1,5 +1,7 @@
 package linkscrapper.Link.domain.entity
 
+import java.time.Instant
+
 /*TODO Separate*/
 type Tags = List[String]
 type Filters = List[String]
@@ -11,4 +13,6 @@ final case class Link(
     url: String,
     tags: Tags,
     filters: Filters,
+    chatId: Long,
+    updatedAt: Instant,
 )

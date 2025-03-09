@@ -5,6 +5,7 @@ import linkscrapper.Link.domain.entity
 
 import tethys.{JsonReader, JsonWriter}
 import sttp.tapir.Schema
+import java.time.Instant
 
 /*TODO Separate*/
 type Tags = List[String]
@@ -34,21 +35,24 @@ final case class RemoveLinkRequest(
     link: String,
 ) derives Schema, JsonReader, JsonWriter
 
-def LinkAddRequestToEntity(createRequest: AddLinkRequest): entity.Link = 
+def LinkAddRequestToEntity(createRequest: AddLinkRequest, chatId: Long): entity.Link = 
     entity.Link(
         id = 1,
         url = createRequest.link,
         tags = createRequest.tags,
         filters = createRequest.filters,
+        chatId = chatId,
+        updatedAt = Instant.now(),
     )
 
-def LinkEntityToModel(linkEntity: entity.Link, chatId: Long): model.Link = 
+def LinkEntityToModel(linkEntity: entity.Link): model.Link = 
     model.Link(
         id = linkEntity.id,
-        chatId = chatId,
         url = linkEntity.url,
         tags = linkEntity.tags,
         filters = linkEntity.filters,
+        chatId = linkEntity.chatId,
+        updatedAt = linkEntity.updatedAt,
     )
 
 def LinkModelToEntity(linkModel: model.Link): entity.Link = 
@@ -57,4 +61,6 @@ def LinkModelToEntity(linkModel: model.Link): entity.Link =
         url = linkModel.url,
         tags = linkModel.tags,
         filters = linkModel.filters,
+        chatId = linkModel.chatId,
+        updatedAt = linkModel.updatedAt,
     )

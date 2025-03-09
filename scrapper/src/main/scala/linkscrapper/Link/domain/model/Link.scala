@@ -1,5 +1,7 @@
 package linkscrapper.Link.domain.model
 
+import java.time.Instant
+
 type Tags = List[String]
 type Filters = List[String]
 
@@ -11,4 +13,5 @@ final case class Link(
     url: String,
     tags: Tags,
     filters: Filters,
+    updatedAt: Instant,
 )
