@@ -41,31 +41,3 @@ object GitHubClient:
   
   def make(client: SttpBackend[IO, Any]): GitHubClient[IO] = 
     Impl(client)
-
-// object GitHubClient:
-//   def getRepoUpdate[F[_]: Async](client: SttpBackend[F, Any], owner: String, repo: String): F[Either[String, GitHubRepo]] =
-//     val request = basicRequest
-//       .get(uri"https://api.github.com/repos/$owner/$repo")
-    
-//     client.send(request).fmap { response =>
-//       response.body match
-//         case Right(json) =>
-//           json.jsonAs[GitHubRepo] match
-//             case Right(repo) => Right(repo)
-//             case Left(err)   => Left(s"JSON decode error: $err")
-        
-//         case Left(error) =>
-//             Left(s"HTTP error: $error")
-//     }
-
-@main def run(): Unit =
-  HttpClientCatsBackend.resource[IO]().use { backend =>
-    val ghClient = GitHubClient.make(backend)
-    ghClient.getRepoUpdate("typelevel", "cats-effect")
-      .flatMap {
-        case Right(repo) =>
-          IO.println(s"Last update: ${repo.updated_at}")
-        case Left(error) =>
-          IO.println(s"Error: $error")
-      }
-  }.unsafeRunSync() 
