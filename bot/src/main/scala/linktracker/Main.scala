@@ -40,6 +40,10 @@ final case class LinkResponse(
     filters: Filters,
 ) derives Schema, JsonReader, JsonWriter
 
+final case class RemoveLinkRequest(
+    link: String,
+) derives Schema, JsonReader, JsonWriter
+
 class MyLongPollBot[F[_]: Async: Parallel](client: SttpBackend[F, Any])(using api: Api[F]) 
   extends LongPollBot[F](api) {
 
@@ -61,6 +65,32 @@ class MyLongPollBot[F[_]: Async: Parallel](client: SttpBackend[F, Any])(using ap
 
       case Left(error) =>
         Methods.sendMessage(ChatIntId(chatId), s"❌ Произошла ошибка: ${error.getMessage}").exec.void
+    }
+  }
+
+  def untrackUrl(chatId: Long, url: String): F[Unit] = {
+    val removeLinkRequest = RemoveLinkRequest(
+      link = url,
+    )
+
+    val request = basicRequest
+      .delete(uri"http://localhost:8080/links")
+      .header("Tg-Chat-Id", chatId.toString)
+      .body(removeLinkRequest.asJson)
+      .contentType("application/json")
+    
+    client.send(request).attempt.flatMap {
+      case Right(response) if response.code == StatusCode.Ok =>
+        Methods.sendMessage(ChatIntId(chatId), "✅ URL успешно удален из трекинга!").exec.void
+
+      case Right(response) =>
+        Methods.sendMessage(ChatIntId(chatId), s"⚠ Ошибка при удалении URL: ${response.code}").exec.void
+
+      case Left(_: SttpClientException.ConnectException) =>
+        Methods.sendMessage(ChatIntId(chatId), "❌ Сервер недоступен. Попробуйте позже.").exec.void
+
+      case Left(error) =>
+        Methods.sendMessage(ChatIntId(chatId), s"❌ Ошибка: ${error.getMessage}").exec.void
     }
   }
 
@@ -117,19 +147,32 @@ class MyLongPollBot[F[_]: Async: Parallel](client: SttpBackend[F, Any])(using ap
     }
   }
 
+  def helpReference(chatId: Long): F[Unit] = {
+    Methods.sendMessage(
+      ChatIntId(chatId), 
+      "✅ Справка /*TODO*/"
+    ).exec.void
+  }
+
   override def onMessage(msg: Message): F[Unit] = {
     val chatId = ChatIntId(msg.chat.id)
     msg.text match {
       case Some("/start") =>
-        Methods.sendMessage(chatId, "start command").exec.void
         signup(msg.chat.id)
 
       case Some(trackText) if trackText.startsWith("/track") => 
         val url = trackText.stripPrefix("/track ").trim
         trackUrl(msg.chat.id, url)
 
+      case Some(untrackText) if untrackText.startsWith("/untrack") => 
+        val url = untrackText.stripPrefix("/untrack ").trim
+        untrackUrl(msg.chat.id, url)
+
       case Some(listText) if listText.startsWith("/list") => 
         getLinkList(msg.chat.id)
+
+      case Some("/help") =>
+        helpReference(msg.chat.id)
 
       case Some(cmd) if cmd.startsWith("/") =>
         Methods.sendMessage(chatId, "unknown command").exec.void
