@@ -30,6 +30,7 @@ object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
 }
 
+/*TODO making emty requests each timing*/
 class QuartzScheduler(
   schedulerConfig: SchedulerConfig,
   linkUsecase: LinkUsecase[IO],
