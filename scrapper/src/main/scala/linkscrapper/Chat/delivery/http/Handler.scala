@@ -5,8 +5,10 @@ import linkscrapper.Chat.domain.dto
 import linkscrapper.Chat.domain.entity
 import linkscrapper.pkg.Controller.Controller
 
-import sttp.tapir.server.ServerEndpoint
 import cats.effect.IO
+import cats.data.EitherT
+
+import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.*
 import sttp.tapir.json.tethysjson.jsonBody
 import sttp.model.StatusCode
@@ -45,15 +47,12 @@ class ChatHandler(
     private val createChat: ServerEndpoint[Any, IO] = 
         ChatEndpoints.createChatEndpoint.serverLogic { chatId =>
             chatUsecase.create(entity.Chat(chatId))
-                .map(_ => Right(()))
-                .handleError(_ => Left(dto.ApiErrorResponse("Ошибка регистрации чата")))
+                .map(_.map(_ => ()))
         }
 
     private val deleteChat: ServerEndpoint[Any, IO] = 
         ChatEndpoints.deleteChatEndpoint.serverLogic { chatId =>
-            chatUsecase.delete(chatId)
-                .map(_ => Right(()))
-                .handleError(_ => Left(dto.ApiErrorResponse("Ошибка удаления чата")))
+            EitherT(chatUsecase.delete(chatId)).value
         }
 
     override def endpoints: List[ServerEndpoint[Any, IO]] =

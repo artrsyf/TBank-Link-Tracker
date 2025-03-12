@@ -7,6 +7,7 @@ import linkscrapper.Chat.domain.dto
 
 import cats.effect.Ref
 import cats.effect.IO
+import linkscrapper.Chat.domain.model.Chat
 
 final class InMemoryChatRepository(
     data: Ref[IO, Map[Long, model.Chat]]
@@ -25,3 +26,6 @@ final class InMemoryChatRepository(
         IO.println(s"Successfully deleted chat with id: $chatId")
 
         data.update(_.removed(chatId))
+
+    override def getById(chatId: Long): IO[Option[Chat]] = 
+        data.get.map(_.get(chatId))
