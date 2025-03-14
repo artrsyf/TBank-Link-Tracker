@@ -15,63 +15,108 @@ import telegramium.bots.{ChatIntId, Message}
 import tethys._
 import tethys.jackson._
 
+import linktracker.config.TelegramConfig
 import linktracker.link.domain.dto
+import linktracker.link.domain.entity.{CommandDescription, ResponseMessage}
 import linktracker.link.presenter.LinkPresenter
 
-class TelegramBotPresenter[F[_]: Async: Parallel](client: SttpBackend[F, Any])(using api: Api[F])
-  extends LongPollBot[F](api) with LinkPresenter[F] {
+trait CommandHandler[F[_]] {
+  def description: String
+  def execute(chatId: Long, args: Option[String]): F[Unit]
+}
 
+object Commands {
+  
+  def all[F[_]: Async: Parallel](bot: TelegramBotPresenter[F])(using api: Api[F]): Map[String, CommandHandler[F]] = Map(
+    "/start"   -> new CommandHandler[F] {
+      val description = CommandDescription.startCommandDescription
+      def execute(chatId: Long, args: Option[String]) = bot.signup(chatId)
+    },
+
+    "/track"   -> new CommandHandler[F] {
+      val description = CommandDescription.trackCommandDescription
+      def execute(chatId: Long, args: Option[String]) = args match {
+        case Some(url) => bot.trackUrl(chatId, url)
+        case None      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
+      }
+    },
+
+    "/untrack" -> new CommandHandler[F] {
+      val description = CommandDescription.untrackCommandDescription
+      def execute(chatId: Long, args: Option[String]) = args match {
+        case Some(url) => bot.untrackUrl(chatId, url)
+        case None      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
+      }
+    },
+
+    "/list"    -> new CommandHandler[F] {
+      val description = CommandDescription.listCommandDescription
+      def execute(chatId: Long, args: Option[String]) = bot.getLinkList(chatId)
+    },
+
+    "/help"    -> new CommandHandler[F] {
+      val description = CommandDescription.helpCommandDescription
+      def execute(chatId: Long, args: Option[String]) = {
+        val helpText = all(bot)
+          .map { case (cmd, handler) => s"$cmd - ${handler.description}" }
+          .mkString("\n")
+        
+        bot.helpReference(chatId, helpText)
+      }
+    }
+  )
+}
+
+class TelegramBotPresenter[F[_]: Async: Parallel](
+  client: SttpBackend[F, Any],
+  telegramConfig: TelegramConfig,
+)(using api: Api[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
+  private def basicSecuredRequest(chatId: Long) = basicRequest
+      .header("Tg-Chat-Id", chatId.toString)
+  
   override def onMessage(msg: Message): F[Unit] = {
     val chatId = ChatIntId(msg.chat.id)
     msg.text match {
-      case Some("/start") =>
-        signup(msg.chat.id)
+      case Some(text) if text.startsWith("/") =>
+        val parts = text.split(" ", 2)
+        val command = parts.head
+        val args = parts.lift(1).map(_.trim)
 
-      case Some(trackText) if trackText.startsWith("/track") => 
-        val url = trackText.stripPrefix("/track ").trim
-        trackUrl(msg.chat.id, url)
-
-      case Some(untrackText) if untrackText.startsWith("/untrack") => 
-        val url = untrackText.stripPrefix("/untrack ").trim
-        untrackUrl(msg.chat.id, url)
-
-      case Some(listText) if listText.startsWith("/list") => 
-        getLinkList(msg.chat.id)
-
-      case Some("/help") =>
-        helpReference(msg.chat.id)
-
-      case Some(cmd) if cmd.startsWith("/") =>
-        Methods.sendMessage(chatId, "unknown command").exec.void
+        Commands.all(this).get(command) match {
+          case Some(handler) => handler.execute(msg.chat.id, args)
+          case None => Methods.sendMessage(chatId, ResponseMessage.UnknownCommandMessage.message).exec.void
+        }
 
       case _ =>
-        Methods.sendMessage(chatId, "not a command").exec.void
+        Methods.sendMessage(chatId, ResponseMessage.NotCommandMessage.message).exec.void
     }
   }
 
   override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
-    val message = s"🔔 Обновление для ссылки: ${linkUpdate.url}\n${linkUpdate.description}"
-    Methods.sendMessage(ChatIntId(chatId), message).exec.void
+    Methods.sendMessage(
+      ChatIntId(chatId), 
+      ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message,
+    ).exec.void
   }
 
   def signup(chatId: Long): F[Unit] = {
     val request = basicRequest
-      .post(uri"http://localhost:8080/tg-chat/${chatId}")
+      .post(uri"${telegramConfig.scrapperServiceUrl}/tg-chat/${chatId}")
 
     client.send(request).attempt.flatMap {
       case Right(response) =>
         response.code match {
           case StatusCode.Ok =>
-            Methods.sendMessage(ChatIntId(chatId), "✅ Регистрация прошла успешно!").exec.void
+            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullRegisterMessage.message).exec.void
           case _ =>
-            Methods.sendMessage(ChatIntId(chatId), s"⚠ Ошибка регистрации: ${response.code}").exec.void
+            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedRegisterMessage.message).exec.void
         }
 
       case Left(_: SttpClientException.ConnectException) =>
-        Methods.sendMessage(ChatIntId(chatId), "❌ Сервер недоступен. Попробуйте позже.").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
-        Methods.sendMessage(ChatIntId(chatId), s"❌ Произошла ошибка: ${error.getMessage}").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
 
@@ -80,24 +125,23 @@ class TelegramBotPresenter[F[_]: Async: Parallel](client: SttpBackend[F, Any])(u
       link = url,
     )
 
-    val request = basicRequest
-      .delete(uri"http://localhost:8080/links")
-      .header("Tg-Chat-Id", chatId.toString)
+    val request = basicSecuredRequest(chatId)
+      .delete(uri"${telegramConfig.scrapperServiceUrl}/links")
       .body(removeLinkRequest.asJson)
       .contentType("application/json")
     
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
-        Methods.sendMessage(ChatIntId(chatId), "✅ URL успешно удален из трекинга!").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkDeletionMessage.message).exec.void
 
       case Right(response) =>
-        Methods.sendMessage(ChatIntId(chatId), s"⚠ Ошибка при удалении URL: ${response.code}").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkDeltionMessage.message).exec.void
 
       case Left(_: SttpClientException.ConnectException) =>
-        Methods.sendMessage(ChatIntId(chatId), "❌ Сервер недоступен. Попробуйте позже.").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
-        Methods.sendMessage(ChatIntId(chatId), s"❌ Ошибка: ${error.getMessage}").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
 
@@ -108,31 +152,29 @@ class TelegramBotPresenter[F[_]: Async: Parallel](client: SttpBackend[F, Any])(u
       filters = List("string"),
     )
 
-    val request = basicRequest
-      .post(uri"http://localhost:8080/links")
-      .header("Tg-Chat-Id", chatId.toString)
+    val request = basicSecuredRequest(chatId)
+      .post(uri"${telegramConfig.scrapperServiceUrl}/links")
       .body(addLinkRequest.asJson)
       .contentType("application/json")
     
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
-        Methods.sendMessage(ChatIntId(chatId), "✅ URL успешно добавлен в трекинг!").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
 
       case Right(response) =>
-        Methods.sendMessage(ChatIntId(chatId), s"⚠ Ошибка при добавлении URL: ${response.code}").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkAdditionMessage.message).exec.void
 
       case Left(_: SttpClientException.ConnectException) =>
-        Methods.sendMessage(ChatIntId(chatId), "❌ Сервер недоступен. Попробуйте позже.").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
-        Methods.sendMessage(ChatIntId(chatId), s"❌ Ошибка: ${error.getMessage}").exec.void
+        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
 
   def getLinkList(chatId: Long): F[Unit] = {
-    val request = basicRequest
-      .get(uri"http://localhost:8080/links")
-      .header("Tg-Chat-Id", chatId.toString)
+    val request = basicSecuredRequest(chatId)
+      .get(uri"${telegramConfig.scrapperServiceUrl}/links")
 
     client.send(request).flatMap { response =>
       response.body match {
@@ -140,24 +182,25 @@ class TelegramBotPresenter[F[_]: Async: Parallel](client: SttpBackend[F, Any])(u
           val links = json.jsonAs[List[dto.LinkResponse]] match
             case Right(linkList) => linkList
             case Left(error) => 
-              Methods.sendMessage(ChatIntId(chatId), s"Ошибка при обработке данных: $error").exec.void
+              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.toString()).message).exec.void
               List()
-
-          links.parTraverse { link =>
-            val message = s"ID: ${link.id}\nURL: ${link.url}\nTags: ${link.tags.mkString(", ")}\nFilters: ${link.filters.mkString(", ")}"
-            Methods.sendMessage(ChatIntId(chatId), message).exec
-          }.void
+          if links.isEmpty then
+            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.EmptyLinkListMessage.message).exec.void
+          else
+            links.parTraverse { link =>
+              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.LinkRepresentationMessage(link).message).exec
+            }.void
 
         case Left(error) =>
-          Methods.sendMessage(ChatIntId(chatId), s"Ошибка при запросе: $error").exec.void
+          Methods.sendMessage(ChatIntId(chatId), ResponseMessage.RequestErrorMessage(error).message).exec.void
       }
     }
   }
 
-  def helpReference(chatId: Long): F[Unit] = {
+  def helpReference(chatId: Long, helpText: String): F[Unit] = {
     Methods.sendMessage(
       ChatIntId(chatId), 
-      "✅ Справка /*TODO*/"
+      ResponseMessage.HelpReferenceMessage(helpText).message
     ).exec.void
   }
 }

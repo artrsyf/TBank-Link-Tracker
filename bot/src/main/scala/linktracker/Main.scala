@@ -1,67 +1,82 @@
 import cats.effect._
-import cats.syntax.functor._
 import cats.effect.kernel.Async
 import cats.Parallel
 import cats.syntax.all._
+import cats.syntax.functor._
 
-import sttp.client3._
-import sttp.client3.impl.cats._
-import sttp.client3.httpclient.cats.HttpClientCatsBackend
-import sttp.tapir._
-import sttp.tapir.json.tethysjson
-import sttp.model.StatusCode
-
-import sttp.tapir.server.http4s.Http4sServerInterpreter
-import org.http4s.ember.server.EmberServerBuilder
 import com.comcast.ip4s.{Host, Port}
+import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
 
-import tethys._
-import tethys.jackson._
-import tethys.derivation._
+import sttp.client3.httpclient.cats.HttpClientCatsBackend
+import sttp.tapir._
+import sttp.tapir.json.tethysjson._
+import sttp.tapir.server.http4s.Http4sServerInterpreter
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
 import telegramium.bots.high._
 import telegramium.bots.high.implicits._
-import telegramium.bots.{ChatIntId, Message}
 
-import org.http4s.ember.client.EmberClientBuilder
+import tethys._
+import tethys.jackson._
 
 import linktracker.config.AppConfig
-import tethys.derivation.builder.WriterDescription.BuilderOperation.Add
-
-import linktracker.link.delivery.http.*
+import linktracker.link.delivery.http._
 import linktracker.link.presenter.TelegramBotPresenter.TelegramBotPresenter
 import linktracker.link.usecase.LinkUsecase
 
-object Http4sBot extends IOApp.Simple {
-  override def run: IO[Unit] =
-    AppConfig.load.flatMap { appConfig =>
-      EmberClientBuilder.default[IO].build.use { backend =>
-        given Api[IO] = BotApi(backend, baseUrl = s"https://api.telegram.org/bot${appConfig.telegram.botToken}")
+object Main extends IOApp {
+  def telegramBotApi(token: String) = 
+    s"https://api.telegram.org/bot${token}"
+  override def run(args: List[String]): IO[ExitCode] =
+    for {
+      appConfig <- AppConfig.load
 
-        HttpClientCatsBackend.resource[IO]().use { backend => 
-          val bot = new TelegramBotPresenter[IO](backend)
-          val linkUsecase = LinkUsecase.make(bot)
+      http4sBackend <- EmberClientBuilder.default[IO].build.use(IO.pure)
+      sttpClient <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
 
-          val linkHandler = new LinkHandler(linkUsecase)
-          val routes = Http4sServerInterpreter[IO]().toRoutes(linkHandler.endpoints)
-          val port = 8081
-          val server = EmberServerBuilder
-              .default[IO]
-              .withHost(Host.fromString("localhost").get)
-              .withPort(Port.fromInt(port).get)
-              .withHttpApp(Router("/" -> routes).orNotFound)
-              .build
-              .evalTap(server =>
-                      IO.println(
-                        s"Server available at http://localhost:${server.address.getPort}"
-                      )
-                  )
-              .useForever
+      given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
-          bot.start().both(server).void
+      bot = new TelegramBotPresenter[IO](sttpClient, appConfig.telegram)
+      linkUsecase = LinkUsecase.make(bot)
+
+      endpoints <-
+        IO {
+          List(
+            LinkHandler(linkUsecase),
+          ).flatMap(_.endpoints)
         }
-      }
-    }
+
+      swaggerEndpoint = SwaggerInterpreter().fromServerEndpoints[IO](
+        endpoints,
+        "Bot API",
+        "1.0.0"
+      )
+
+      routes = Http4sServerInterpreter[IO]()
+        .toRoutes(swaggerEndpoint ++ endpoints)
+
+      port <- getPortSafe(appConfig.server.port)
+
+      server = EmberServerBuilder
+        .default[IO]
+        .withHost(Host.fromString("localhost").get)
+        .withPort(port)
+        .withHttpApp(Router("/" -> routes).orNotFound)
+        .build
+        .evalTap(server =>
+                IO.println(
+                  s"Server available at http://localhost:${server.address.getPort}"
+                )
+            )
+        .useForever
+      _ <- bot.start().both(server)
+    } yield ExitCode.Success
+
+  private def getPortSafe(v: Int): IO[Port] =
+    IO.delay(
+      Port.fromInt(v).toRight(IllegalArgumentException("Invalid port value"))
+    ).rethrow
 }
 
