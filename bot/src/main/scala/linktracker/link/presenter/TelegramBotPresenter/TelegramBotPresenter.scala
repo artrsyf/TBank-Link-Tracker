@@ -49,7 +49,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](client: SttpBackend[F, Any])(u
     }
   }
 
-  override def sendSth(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
+  override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
     val message = s"🔔 Обновление для ссылки: ${linkUpdate.url}\n${linkUpdate.description}"
     Methods.sendMessage(ChatIntId(chatId), message).exec.void
   }

@@ -18,7 +18,7 @@ object LinkUsecase:
             for {
                 _ <- linkUpdates.traverse { linkUpdate =>
                     linkUpdate.tgChatIds.traverse { chatId =>
-                        linkPresenter.sendSth(chatId, linkUpdate)
+                        linkPresenter.publishLinkUpdate(chatId, linkUpdate)
                     }
                 }
             } yield ()
