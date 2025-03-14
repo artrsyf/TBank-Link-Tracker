@@ -1,12 +1,14 @@
 package linkscrapper.Link.repository.InMemory
 
-import linkscrapper.Link.domain.model
-import linkscrapper.Link.domain.entity
-import linkscrapper.Link.domain.dto
-import linkscrapper.Link.repository
+import java.time.Instant
 
-import cats.effect.Ref
 import cats.effect.IO
+import cats.effect.Ref
+
+import linkscrapper.Link.domain.dto
+import linkscrapper.Link.domain.entity
+import linkscrapper.Link.domain.model
+import linkscrapper.Link.repository
 
 /*TODO url key is not valid*/
 final class InMemoryLinkRepository(
@@ -15,7 +17,7 @@ final class InMemoryLinkRepository(
     override def create(linkEntity: entity.Link): IO[model.Link] = 
         for 
             linkModel <- IO.pure(
-                dto.LinkEntityToModel(linkEntity)
+                dto.LinkEntityToModel(linkEntity, Instant.now())
             )
             _ <- data.update(_ + (linkModel.url -> linkModel))
             _ <- IO.println(s"Successfully created link with URL: ${linkEntity.url}")
@@ -26,7 +28,7 @@ final class InMemoryLinkRepository(
             maybeLink <- data.get.map(_.get(linkEntity.url))
             result <- maybeLink match {
                 case Some(linkModel) =>
-                    val updatedLinkModel = dto.LinkEntityToModel(linkEntity)
+                    val updatedLinkModel = dto.LinkEntityToModel(linkEntity, linkModel.createdAt)
                     data.update(_.updated(linkEntity.url, updatedLinkModel))
 
                     IO.println(s"Successfully updated link with URL: ${linkEntity.url}")

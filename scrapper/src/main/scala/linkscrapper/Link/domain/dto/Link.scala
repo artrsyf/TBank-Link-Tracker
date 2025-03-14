@@ -1,17 +1,16 @@
 package linkscrapper.Link.domain.dto
 
-import linkscrapper.Link.domain.model
-import linkscrapper.Link.domain.entity
-
-import tethys.{JsonReader, JsonWriter}
-import sttp.tapir.Schema
 import java.time.Instant
 
-/*TODO Separate*/
+import sttp.tapir.Schema
+import tethys.{JsonReader, JsonWriter}
+
+import linkscrapper.Link.domain.entity
+import linkscrapper.Link.domain.model
+
 type Tags = List[String]
 type Filters = List[String]
 
-/*TODO Separate*/
 final case class ApiErrorResponse(
     error: String,
 ) derives Schema, JsonReader, JsonWriter
@@ -58,13 +57,14 @@ def LinkAddRequestToEntity(createRequest: AddLinkRequest, chatId: Long): entity.
         updatedAt = Instant.now(),
     )
 
-def LinkEntityToModel(linkEntity: entity.Link): model.Link = 
+def LinkEntityToModel(linkEntity: entity.Link, createdAt: Instant): model.Link = 
     model.Link(
         id = linkEntity.id,
         url = linkEntity.url,
         tags = linkEntity.tags,
         filters = linkEntity.filters,
         chatId = linkEntity.chatId,
+        createdAt = createdAt,
         updatedAt = linkEntity.updatedAt,
     )
 

@@ -1,19 +1,17 @@
 package linkscrapper.Link.delivery.http
 
-import linkscrapper.Chat.usecase.ChatUsecase
-import linkscrapper.Link.usecase.LinkUsecase
-import linkscrapper.Link.domain.dto
-import linkscrapper.Link.domain.entity
-import linkscrapper.pkg.Controller.Controller
-
-import sttp.tapir.server.ServerEndpoint
 import cats.effect.IO
-import sttp.tapir.*
-import sttp.tapir.json.tethysjson.jsonBody
-import sttp.model.StatusCode
 import cats.data.EitherT
 
-object Middlewares:
+import sttp.tapir.server.ServerEndpoint
+
+import linkscrapper.Chat.usecase.ChatUsecase
+import linkscrapper.Link.domain.dto
+import linkscrapper.Link.endpoints.LinkEndpoints
+import linkscrapper.Link.usecase.LinkUsecase
+import linkscrapper.pkg.Controller.Controller
+
+object ChatMiddlewares:
     def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
         chatId =>
             checkChat(chatId).map {
@@ -21,56 +19,11 @@ object Middlewares:
                 case false => Left(dto.ApiErrorResponse("Чат не найден"))
             }
 
-object LinkEndpoints:
-    val getLinksEndpoint: Endpoint[
-        Unit,
-        Long,
-        dto.ApiErrorResponse,
-        dto.ListLinksResponse,
-        Any
-    ] =
-        endpoint.get
-            .summary("Получить все отслеживаемые ссылки")
-            .in("links")
-            .in(header[Long]("Tg-Chat-Id"))
-            .out(jsonBody[dto.ListLinksResponse].and(statusCode(StatusCode.Ok)))
-            .errorOut(jsonBody[dto.ApiErrorResponse].and(statusCode(StatusCode.BadRequest)))
-
-    val addLinkEndpoint: Endpoint[
-        Unit,
-        (Long, dto.AddLinkRequest),
-        dto.ApiErrorResponse,
-        dto.LinkResponse,
-        Any
-    ] =
-        endpoint.post
-            .summary("Добавить отслеживание ссылки")
-            .in("links")
-            .in(header[Long]("Tg-Chat-Id"))
-            .in(jsonBody[dto.AddLinkRequest])
-            .out(jsonBody[dto.LinkResponse].and(statusCode(StatusCode.Ok)))
-            .errorOut(jsonBody[dto.ApiErrorResponse].and(statusCode(StatusCode.BadRequest)))
-
-    val removeLinkEndpoint: Endpoint[
-        Unit,
-        (Long, dto.RemoveLinkRequest),
-        dto.ApiErrorResponse,
-        dto.LinkResponse,
-        Any
-    ] =
-        endpoint.delete
-            .summary("Убрать отслеживание ссылки")
-            .in("links")
-            .in(header[Long]("Tg-Chat-Id"))
-            .in(jsonBody[dto.RemoveLinkRequest])
-            .out(jsonBody[dto.LinkResponse].and(statusCode(StatusCode.Ok)))
-            .errorOut(jsonBody[dto.ApiErrorResponse].and(statusCode(StatusCode.BadRequest)))
-
 class LinkHandler(
     chatUsecase: ChatUsecase[IO],
     linkUsecase: LinkUsecase[IO],
 ) extends Controller[IO]:
-    private val checkChat = Middlewares.chatValidation(chatUsecase.check)
+    private val checkChat = ChatMiddlewares.chatValidation(chatUsecase.check)
 
     private def withChatValidation[A, B](
         logic: Long => IO[Either[dto.ApiErrorResponse, B]]
@@ -85,7 +38,6 @@ class LinkHandler(
             withChatValidation { _ =>
                 linkUsecase.getLinksByChatId(chatId)
                     .map(links => Right(links.map(link => dto.LinkResponse(link.id, link.url, link.tags, link.filters))))
-                    .handleError(e => Left(dto.ApiErrorResponse(s"Ошибка получения ссылок: ${e.getMessage}")))
             }(chatId)
         }
 
@@ -97,7 +49,7 @@ class LinkHandler(
                         case Right(link) =>
                             IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
                         case Left(errorResp) =>
-                            IO.pure(Left(dto.ApiErrorResponse(s"Ошибка добавления ссылки: ${errorResp.error}")))
+                            IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
                     }
             }(chatId)
         }
@@ -110,7 +62,7 @@ class LinkHandler(
                         case Right(link) =>
                             IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
                         case Left(errorResp) =>
-                            IO.pure(Left(dto.ApiErrorResponse(s"Ошибка удаления ссылки: ${errorResp.error}")))
+                            IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
                     }
             }(chatId)
         }

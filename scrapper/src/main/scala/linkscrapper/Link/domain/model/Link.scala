@@ -4,7 +4,6 @@ import java.time.Instant
 
 type Tags = List[String]
 type Filters = List[String]
-
 type Links = List[Link]
 
 final case class Link(
@@ -13,5 +12,6 @@ final case class Link(
     url: String,
     tags: Tags,
     filters: Filters,
+    createdAt: Instant,
     updatedAt: Instant,
 )
