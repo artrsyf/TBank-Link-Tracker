@@ -1,14 +1,14 @@
 package linkscrapper.Chat.repository.InMemory
 
-import linkscrapper.Chat.repository
-import linkscrapper.Chat.domain.model
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.domain.dto
+import java.time.Instant
 
 import cats.effect.Ref
 import cats.effect.IO
-import linkscrapper.Chat.domain.model.Chat
-import java.time.Instant
+
+import linkscrapper.Chat.domain.dto
+import linkscrapper.Chat.domain.entity
+import linkscrapper.Chat.domain.model
+import linkscrapper.Chat.repository
 
 final class InMemoryChatRepository(
     data: Ref[IO, Map[Long, model.Chat]]
@@ -28,5 +28,5 @@ final class InMemoryChatRepository(
 
         data.update(_.removed(chatId))
 
-    override def getById(chatId: Long): IO[Option[Chat]] = 
+    override def getById(chatId: Long): IO[Option[model.Chat]] = 
         data.get.map(_.get(chatId))

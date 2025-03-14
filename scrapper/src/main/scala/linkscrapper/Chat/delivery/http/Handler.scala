@@ -1,46 +1,16 @@
 package linkscrapper.Chat.delivery.http
 
-import linkscrapper.Chat.usecase.ChatUsecase
-import linkscrapper.Chat.domain.dto
-import linkscrapper.Chat.domain.entity
-import linkscrapper.pkg.Controller.Controller
-
-import cats.effect.IO
 import cats.data.EitherT
+import cats.effect.IO
 import cats.implicits.catsSyntaxEither
 
 import sttp.tapir.server.ServerEndpoint
-import sttp.tapir.*
-import sttp.tapir.json.tethysjson.jsonBody
-import sttp.model.StatusCode
 
-object ChatEndpoints:
-    val createChatEndpoint: Endpoint[
-        Unit,
-        Long,
-        dto.ApiErrorResponse,
-        Unit,
-        Any,
-    ] = 
-        endpoint.post
-            .summary("Зарегистрироваь чат")
-            .in("tg-chat" / path[Long]("id"))
-            .out(statusCode(StatusCode.Ok))
-            .errorOut(jsonBody[dto.ApiErrorResponse].and(statusCode(StatusCode.BadRequest)))
-    
-    val deleteChatEndpoint: Endpoint[
-        Unit,
-        Long,
-        dto.ApiErrorResponse,
-        Unit,
-        Any,
-    ] = 
-        endpoint.delete
-            .summary("Удалить чат")
-            .in("tg-chat" / path[Long]("id"))
-            .out(statusCode(StatusCode.Ok))
-            .errorOut(jsonBody[dto.ApiErrorResponse].and(statusCode(StatusCode.BadRequest)))
-
+import linkscrapper.Chat.domain.dto
+import linkscrapper.Chat.domain.entity
+import linkscrapper.Chat.endpoints.ChatEndpoints
+import linkscrapper.Chat.usecase.ChatUsecase
+import linkscrapper.pkg.Controller.Controller
 
 class ChatHandler(
     chatUsecase: ChatUsecase[IO],

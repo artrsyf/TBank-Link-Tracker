@@ -1,13 +1,13 @@
 package linkscrapper.Chat.usecase
 
-import linkscrapper.Chat.domain.dto
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.domain.entity.ChatError
-
-import linkscrapper.Chat.repository.ChatRepository
 import cats.effect.IO
 import scala.languageFeature.existentials
 import telegramium.bots.high.messageentities.MessageEntityFormat.Bold
+
+import linkscrapper.Chat.domain.dto
+import linkscrapper.Chat.domain.entity
+import linkscrapper.Chat.domain.entity.ChatError
+import linkscrapper.Chat.repository.ChatRepository
 
 trait ChatUsecase[F[_]]:
     def create(chatEntity: entity.Chat): F[Either[ChatError, entity.Chat]]
