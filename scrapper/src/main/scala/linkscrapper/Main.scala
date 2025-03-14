@@ -21,11 +21,8 @@ object Main extends IOApp:
     override def run(args: List[String]): IO[ExitCode] = 
         for {
             appConfig <- AppConfig.load
-            repositories <- Repositories.make
-            usecases = Usecases.make(repositories)
 
             backend <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
-
             githubClient <- IO(GitHubClient.make(backend))
             stackoverflowClient <- IO(StackOverflowClient.make(backend))
 
@@ -33,6 +30,10 @@ object Main extends IOApp:
                 "https://github.com/" -> githubClient,
                 "https://stackoverflow.com/" -> stackoverflowClient,
             )
+
+            repositories <- Repositories.make
+            usecases = Usecases.make(repositories, clients.keys.toList)
+
             scheduler = QuartzScheduler(
                 appConfig.scheduler,
                 usecases.linkUsecase,
@@ -43,7 +44,7 @@ object Main extends IOApp:
                 IO {
                     List(
                         ChatHandler.make(usecases.chatUsecase),
-                        LinkHandler.make(usecases.linkUsecase),
+                        LinkHandler.make(usecases.chatUsecase, usecases.linkUsecase),
                     ).flatMap(_.endpoints)
                 }
 

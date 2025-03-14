@@ -70,7 +70,12 @@ class QuartzScheduler(
               case Right(updatedTime) => 
                 if (updatedTime.isAfter(link.updatedAt)) then
                   val updatedLink = link.copy(updatedAt = updatedTime)
-                  linkUsecase.updateLink(updatedLink).map(Some(_))
+                  linkUsecase.updateLink(updatedLink).flatMap {
+                    case Right(updatedLinkEntity) => 
+                      IO.pure(Some(updatedLinkEntity))
+                    case Left(errorResp) =>
+                      IO.delay(println(s"Error updating link: ${errorResp.error}")).map(_ => None)
+                  }
                 else
                   IO.pure(None)
               case Left(error) => 

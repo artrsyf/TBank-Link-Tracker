@@ -13,9 +13,9 @@ final case class Usecases(
 )
 
 object Usecases:
-  def make(repos: Repositories): Usecases =
+  def make(repos: Repositories, clients: List[String]): Usecases =
     val chatUsecase  = ChatUsecase.make(repos.chatRepo)
-    val linkUsecase = LinkUsecase.make(repos.linkRepo)
+    val linkUsecase = LinkUsecase.make(repos.linkRepo, clients)
 
     Usecases(
       chatUsecase,

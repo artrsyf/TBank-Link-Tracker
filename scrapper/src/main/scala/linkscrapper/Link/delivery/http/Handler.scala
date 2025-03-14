@@ -11,6 +11,7 @@ import cats.effect.IO
 import sttp.tapir.*
 import sttp.tapir.json.tethysjson.jsonBody
 import sttp.model.StatusCode
+import cats.data.EitherT
 
 object Middlewares:
     def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
@@ -92,8 +93,12 @@ class LinkHandler(
         LinkEndpoints.addLinkEndpoint.serverLogic { case (chatId, addRequest) =>
             withChatValidation { _ =>
                 linkUsecase.addLink(addRequest, chatId)
-                    .map(link => Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
-                    .handleError(e => Left(dto.ApiErrorResponse(s"Ошибка добавления ссылки: ${e.getMessage}")))
+                    .flatMap{
+                        case Right(link) =>
+                            IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
+                        case Left(errorResp) =>
+                            IO.pure(Left(dto.ApiErrorResponse(s"Ошибка добавления ссылки: ${errorResp.error}")))
+                    }
             }(chatId)
         }
 
@@ -101,8 +106,12 @@ class LinkHandler(
         LinkEndpoints.removeLinkEndpoint.serverLogic { case (chatId, removeRequest) =>
             withChatValidation { _ =>
                 linkUsecase.removeLink(removeRequest.link, chatId)
-                    .map(link => Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
-                    .handleError(e => Left(dto.ApiErrorResponse(s"Ошибка удаления ссылки: ${e.getMessage}")))
+                    .flatMap{
+                        case Right(link) =>
+                            IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
+                        case Left(errorResp) =>
+                            IO.pure(Left(dto.ApiErrorResponse(s"Ошибка удаления ссылки: ${errorResp.error}")))
+                    }
             }(chatId)
         }
 
