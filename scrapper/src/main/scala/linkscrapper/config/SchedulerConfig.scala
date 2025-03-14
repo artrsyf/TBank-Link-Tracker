@@ -7,6 +7,7 @@ import pureconfig.configurable.genericMapReader
 
 final case class SchedulerConfig(
   cronExpression: String,
+  updatesHandlerUrl: String,
   threadNumber: Int,
 ) derives ConfigReader
 

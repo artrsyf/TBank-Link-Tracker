@@ -1,36 +1,35 @@
 package linkscrapper.pkg.Scheduler
 
+import java.time.Instant
+
 import cats.effect.IO
-import cats.syntax.traverse.*
 import cats.effect.std.Queue
-import cats.effect.kernel.Async
+import cats.syntax.traverse.*
 
 import com.itv.scheduler._
 import com.itv.scheduler.extruder.semiauto._
 import org.quartz.{CronExpression, JobKey, TriggerKey}
 
-import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.client3._
+import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.json.tethysjson
 import tethys._
 import tethys.jackson._
 
-import java.time.Instant
-
-import linkscrapper.pkg.Client.LinkClient
 import linkscrapper.config.SchedulerConfig
 import linkscrapper.Link.usecase.LinkUsecase
 import linkscrapper.Link.domain.dto
+import linkscrapper.pkg.Client.LinkClient
 
 sealed trait ParentJob
-case object CronJob extends ParentJob
-case object CheckJob extends ParentJob
 
 object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
 }
 
-/*TODO making emty requests each timing*/
+case object CronJob extends ParentJob
+case object CheckJob extends ParentJob
+
 class QuartzScheduler(
   schedulerConfig: SchedulerConfig,
   linkUsecase: LinkUsecase[IO],
@@ -39,12 +38,13 @@ class QuartzScheduler(
 ) {
   private def sendUpdatedLinks(linkUpdates: List[dto.LinkUpdate]): IO[Unit] = 
     val request = basicRequest
-      .post(uri"http://localhost:8081/updates")
+      .post(uri"${schedulerConfig.updatesHandlerUrl}")
       .body(linkUpdates.asJson)
       .contentType("application/json")
 
     for
       _ <- IO.delay(println(s"Sending updates: ${linkUpdates.asJson.toString}"))
+
       response <- backend.send(request).attempt
       _ <- response match {
         case Right(resp) if resp.code.isSuccess =>
@@ -59,22 +59,24 @@ class QuartzScheduler(
   private def fetchLinkUpdates: IO[Unit] =
     for {
       _ <- IO.delay(println("Scheduled link fetch"))
+
       links <- linkUsecase.getLinks
       _ <- IO.delay(println(s"Links: $links"))
       updatedLinks <- links.traverse { link =>
-        println(s"link: $link")
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
             println(s"Choose client ${client.getClass().toString()} for url $link.url")
+
             client.getLastUpdate(link.url).flatMap {
               case Right(updatedTime) => 
                 if (updatedTime.isAfter(link.updatedAt)) then
                   val updatedLink = link.copy(updatedAt = updatedTime)
+                  
                   linkUsecase.updateLink(updatedLink).flatMap {
                     case Right(updatedLinkEntity) => 
                       IO.pure(Some(updatedLinkEntity))
                     case Left(errorResp) =>
-                      IO.delay(println(s"Error updating link: ${errorResp.error}")).map(_ => None)
+                      IO.delay(println(s"Error updating link: ${errorResp.message}")).map(_ => None)
                   }
                 else
                   IO.pure(None)
@@ -97,8 +99,7 @@ class QuartzScheduler(
           None
         }
       }.toList
-      _ <- IO.delay(println(s"Updated links: ${updatedLinks.flatten}"))
-      _ <- sendUpdatedLinks(linkUpdates)
+      _ = if linkUpdates.nonEmpty then sendUpdatedLinks(linkUpdates)
       _ <- IO.delay(println(s"Sent updated links to tg bot"))
     } yield ()
 
