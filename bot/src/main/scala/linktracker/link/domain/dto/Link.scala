@@ -1,7 +1,7 @@
 package linktracker.link.domain.dto
 
-import tethys.{JsonReader, JsonWriter}
 import sttp.tapir.Schema
+import tethys.{JsonReader, JsonWriter}
 
 type Tags = List[String]
 type Filters = List[String]

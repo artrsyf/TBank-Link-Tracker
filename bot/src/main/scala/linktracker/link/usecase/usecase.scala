@@ -1,11 +1,11 @@
 package linktracker.link.usecase
 
+import cats.effect.IO
+import cats.syntax.traverse._
+
 import linktracker.link.domain.dto
 import linktracker.link.domain.dto.LinkUpdate
 import linktracker.link.presenter.LinkPresenter
-
-import cats.effect.IO
-import cats.syntax.traverse._
 
 trait LinkUsecase[F[_]]:
     def serveLinks(linkUpdates: List[dto.LinkUpdate]): F[Unit]
