@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.effect.IO
 import cats.effect.std.Queue
+import cats.implicits.catsSyntaxApplicativeByName
 import cats.syntax.traverse.*
 
 import com.itv.scheduler._
@@ -99,7 +100,7 @@ class QuartzScheduler(
           None
         }
       }.toList
-      _ = if linkUpdates.nonEmpty then sendUpdatedLinks(linkUpdates)
+      _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
       _ <- IO.delay(println(s"Sent updated links to tg bot"))
     } yield ()
 
