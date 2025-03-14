@@ -1,30 +1,35 @@
 package linkscrapper.pkg.Client.StackOverflowClient
 
-import linkscrapper.pkg.Client.LinkClient
+import java.time.Instant
 
 import cats.effect.*
-import cats.syntax.functor._
 import cats.Monad
+import cats.syntax.functor._
 
 import sttp.client3._
-import sttp.client3.impl.cats._
-import sttp.client3.httpclient.cats.HttpClientCatsBackend
-import sttp.tapir._
+
 import tethys._
 import tethys.jackson._
 
-import cats.effect.unsafe.implicits.global
-import java.time.Instant
+import linkscrapper.pkg.Client.LinkClient
+
+final case class StackOverflowQuestion(
+  question_id: Long, 
+  title: String, 
+  link: String, 
+  last_activity_date: Long
+) derives JsonReader
 
 final case class StackOverflowResponse(items: List[StackOverflowQuestion]) derives JsonReader
 
-final case class StackOverflowQuestion(question_id: Long, title: String, link: String, last_activity_date: Long) derives JsonReader
-
 trait StackOverflowClient[F[_]: Monad] extends LinkClient[F]:
+  private val clientPrefix: String = "https://stackoverflow.com/questions/"
+
   override def getLastUpdate(url: String): F[Either[String, Instant]] = {
-    val requestParts = url.stripPrefix("https://stackoverflow.com/questions/").split("/")
+    val requestParts = url.stripPrefix(clientPrefix).split("/")
     if (requestParts.nonEmpty) {
       val questionId = requestParts(0).toLong
+      
       getQuestionById(questionId).map {
         case Right(question) => Right(Instant.ofEpochSecond(question.last_activity_date))
         case Left(error)    => Left(error)
@@ -40,9 +45,12 @@ object StackOverflowClient:
   final private class Impl(
     client: SttpBackend[IO, Any]
   ) extends StackOverflowClient[IO]:
+    private def stackOverflowApiUrl(id: Long) = 
+      s"https://api.stackexchange.com/2.3/questions/$id?site=stackoverflow"
+
     override def getQuestionById(id: Long): IO[Either[String, StackOverflowQuestion]] = {
       val request = basicRequest
-        .get(uri"https://api.stackexchange.com/2.3/questions/$id?site=stackoverflow")
+        .get(uri"${stackOverflowApiUrl}")
 
       client.send(request).fmap { response =>
         response.body match
@@ -59,22 +67,3 @@ object StackOverflowClient:
 
   def make(client: SttpBackend[IO, Any]): StackOverflowClient[IO] = 
     new Impl(client)
-
-@main def run(): Unit =
-  HttpClientCatsBackend.resource[IO]().use { backend =>
-    val cl = StackOverflowClient.make(backend)
-    cl.getQuestionById(26380420)
-      .flatMap {
-        case Right(question) =>
-          val instant = Instant.ofEpochSecond(question.last_activity_date)
-          
-          val formattedDate = instant.atZone(java.time.ZoneId.systemDefault())
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-            
-          IO.println(s"Last update: $formattedDate")
-          
-        case Left(error) =>
-          IO.println(s"Error: $error")
-      }
-  }.unsafeRunSync()
-

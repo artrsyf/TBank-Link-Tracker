@@ -4,18 +4,18 @@ import cats.effect.{ExitCode, IO, IOApp}
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
+import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
-import sttp.client3.httpclient.cats.HttpClientCatsBackend
 
-import linkscrapper.config.{AppConfig, SchedulerConfig}
-import linkscrapper.wiring.{Repositories, Usecases}
 import linkscrapper.Chat.delivery.http.ChatHandler
+import linkscrapper.config.AppConfig
 import linkscrapper.Link.delivery.http.LinkHandler
 import linkscrapper.pkg.Client.LinkClient
 import linkscrapper.pkg.Client.GitHubClient.GitHubClient
 import linkscrapper.pkg.Client.StackOverflowClient.StackOverflowClient
 import linkscrapper.pkg.Scheduler.QuartzScheduler
+import linkscrapper.wiring.{Repositories, Usecases}
 
 object Main extends IOApp:
     override def run(args: List[String]): IO[ExitCode] = 
