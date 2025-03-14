@@ -5,7 +5,7 @@ sealed trait ChatError extends Throwable:
 
 object ChatError:
     case object ErrAlreadyRegistered extends ChatError:
-        val message = "Чат уже зарегистрирован"
+        override def message = "Чат уже зарегистрирован"
 
     case object ErrDeletionInvalidChat extends ChatError:
-        val message = "Ошибка удаления чата"
+        override def message = "Ошибка удаления чата"
