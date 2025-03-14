@@ -8,6 +8,7 @@ import linkscrapper.Chat.domain.dto
 import cats.effect.Ref
 import cats.effect.IO
 import linkscrapper.Chat.domain.model.Chat
+import java.time.Instant
 
 final class InMemoryChatRepository(
     data: Ref[IO, Map[Long, model.Chat]]
@@ -17,7 +18,7 @@ final class InMemoryChatRepository(
 
         for 
             chatModel <- IO.pure(
-                dto.ChatEntityToModel(chatEntity)
+                dto.ChatEntityToModel(chatEntity, Instant.now())
             )
             _ <- data.update(_ + (chatModel.chatId -> chatModel))
         yield chatModel
