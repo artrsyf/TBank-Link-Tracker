@@ -28,16 +28,16 @@ object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
 }
 
-case object CronJob extends ParentJob
+case object CronJob  extends ParentJob
 case object CheckJob extends ParentJob
 
 class QuartzScheduler(
-  schedulerConfig: SchedulerConfig,
-  linkUsecase: LinkUsecase[IO],
-  clients: Map[String, LinkClient[IO]],
-  backend: SttpBackend[IO, Any],
+    schedulerConfig: SchedulerConfig,
+    linkUsecase: LinkUsecase[IO],
+    clients: Map[String, LinkClient[IO]],
+    backend: SttpBackend[IO, Any],
 ) {
-  private def sendUpdatedLinks(linkUpdates: List[dto.LinkUpdate]): IO[Unit] = 
+  private def sendUpdatedLinks(linkUpdates: List[dto.LinkUpdate]): IO[Unit] =
     val request = basicRequest
       .post(uri"${schedulerConfig.updatesHandlerUrl}")
       .body(linkUpdates.asJson)
@@ -62,26 +62,26 @@ class QuartzScheduler(
       _ <- IO.delay(println("Scheduled link fetch"))
 
       links <- linkUsecase.getLinks
-      _ <- IO.delay(println(s"Links: $links"))
+      _     <- IO.delay(println(s"Links: $links"))
       updatedLinks <- links.traverse { link =>
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
             println(s"Choose client ${client.getClass().toString()} for url $link.url")
 
             client.getLastUpdate(link.url).flatMap {
-              case Right(updatedTime) => 
+              case Right(updatedTime) =>
                 if (updatedTime.isAfter(link.updatedAt)) then
                   val updatedLink = link.copy(updatedAt = updatedTime)
-                  
+
                   linkUsecase.updateLink(updatedLink).flatMap {
-                    case Right(updatedLinkEntity) => 
+                    case Right(updatedLinkEntity) =>
                       IO.pure(Some(updatedLinkEntity))
                     case Left(errorResp) =>
                       IO.delay(println(s"Error updating link: ${errorResp.message}")).map(_ => None)
                   }
                 else
                   IO.pure(None)
-              case Left(error) => 
+              case Left(error) =>
                 IO.pure(None)
             }
         }.getOrElse(IO.pure(None))

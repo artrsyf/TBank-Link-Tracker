@@ -27,18 +27,18 @@ import linktracker.link.presenter.TelegramBotPresenter.TelegramBotPresenter
 import linktracker.link.usecase.LinkUsecase
 
 object Main extends IOApp {
-  def telegramBotApi(token: String) = 
+  def telegramBotApi(token: String) =
     s"https://api.telegram.org/bot${token}"
   override def run(args: List[String]): IO[ExitCode] =
     for {
       appConfig <- AppConfig.load
 
       http4sBackend <- EmberClientBuilder.default[IO].build.use(IO.pure)
-      sttpClient <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
+      sttpClient    <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
 
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
-      bot = new TelegramBotPresenter[IO](sttpClient, appConfig.telegram)
+      bot         = new TelegramBotPresenter[IO](sttpClient, appConfig.telegram)
       linkUsecase = LinkUsecase.make(bot)
 
       endpoints <-
@@ -66,10 +66,10 @@ object Main extends IOApp {
         .withHttpApp(Router("/" -> routes).orNotFound)
         .build
         .evalTap(server =>
-                IO.println(
-                  s"Server available at http://localhost:${server.address.getPort}"
-                )
-            )
+          IO.println(
+            s"Server available at http://localhost:${server.address.getPort}"
+          )
+        )
         .useForever
       _ <- bot.start().both(server)
     } yield ExitCode.Success
@@ -79,4 +79,3 @@ object Main extends IOApp {
       Port.fromInt(v).toRight(IllegalArgumentException("Invalid port value"))
     ).rethrow
 }
-

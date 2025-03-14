@@ -12,8 +12,8 @@ final case class ApiErrorResponse(
     error: String,
 ) derives Schema, JsonReader, JsonWriter
 
-def ChatEntityToModel(chatEntity: entity.Chat, createdAt: Instant): model.Chat = 
-    model.Chat(
-        chatId = chatEntity.chatId,
-        createdAt = createdAt,
-    )
+def ChatEntityToModel(chatEntity: entity.Chat, createdAt: Instant): model.Chat =
+  model.Chat(
+    chatId = chatEntity.chatId,
+    createdAt = createdAt,
+  )

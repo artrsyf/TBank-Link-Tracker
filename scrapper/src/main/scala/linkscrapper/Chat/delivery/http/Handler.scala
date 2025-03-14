@@ -15,30 +15,29 @@ import linkscrapper.pkg.Controller.Controller
 class ChatHandler(
     chatUsecase: ChatUsecase[IO],
 ) extends Controller[IO]:
-    private val createChat: ServerEndpoint[Any, IO] = 
-        ChatEndpoints.createChatEndpoint.serverLogic { chatId =>
-            chatUsecase.create(entity.Chat(chatId)).map {
-                case Right(chat) => Right(())
-                case Left(chatError) => Left(dto.ApiErrorResponse(chatError.message))
-            }
-        }
+  private val createChat: ServerEndpoint[Any, IO] =
+    ChatEndpoints.createChatEndpoint.serverLogic { chatId =>
+      chatUsecase.create(entity.Chat(chatId)).map {
+        case Right(chat)     => Right(())
+        case Left(chatError) => Left(dto.ApiErrorResponse(chatError.message))
+      }
+    }
 
-    private val deleteChat: ServerEndpoint[Any, IO] = 
-        ChatEndpoints.deleteChatEndpoint.serverLogic { chatId =>
-            
-            chatUsecase.delete(chatId).map {
-                _.leftMap(err => dto.ApiErrorResponse(err.message))
-            }
-        }
+  private val deleteChat: ServerEndpoint[Any, IO] =
+    ChatEndpoints.deleteChatEndpoint.serverLogic { chatId =>
+      chatUsecase.delete(chatId).map {
+        _.leftMap(err => dto.ApiErrorResponse(err.message))
+      }
+    }
 
-    override def endpoints: List[ServerEndpoint[Any, IO]] =
-        List(
-            createChat,
-            deleteChat,
-        )
+  override def endpoints: List[ServerEndpoint[Any, IO]] =
+    List(
+      createChat,
+      deleteChat,
+    )
 
 object ChatHandler:
   def make(
-    chatUsecase: ChatUsecase[IO],
+      chatUsecase: ChatUsecase[IO],
   ): ChatHandler =
     ChatHandler(chatUsecase)

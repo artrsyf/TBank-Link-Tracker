@@ -14,53 +14,53 @@ import linkscrapper.Link.repository
 final class InMemoryLinkRepository(
     data: Ref[IO, Map[String, model.Link]]
 ) extends repository.LinkRepository[IO]:
-    override def create(linkEntity: entity.Link): IO[model.Link] = 
-        for 
-            linkModel <- IO.pure(
-                dto.LinkEntityToModel(linkEntity, Instant.now())
-            )
-            _ <- data.update(_ + (linkModel.url -> linkModel))
-            _ <- IO.println(s"Successfully created link with URL: ${linkEntity.url}")
-        yield linkModel
+  override def create(linkEntity: entity.Link): IO[model.Link] =
+    for
+      linkModel <- IO.pure(
+        dto.LinkEntityToModel(linkEntity, Instant.now())
+      )
+      _ <- data.update(_ + (linkModel.url -> linkModel))
+      _ <- IO.println(s"Successfully created link with URL: ${linkEntity.url}")
+    yield linkModel
 
-    override def update(linkEntity: entity.Link): IO[Option[model.Link]] = 
-        for 
-            maybeLink <- data.get.map(_.get(linkEntity.url))
-            result <- maybeLink match {
-                case Some(linkModel) =>
-                    val updatedLinkModel = dto.LinkEntityToModel(linkEntity, linkModel.createdAt)
-                    data.update(_.updated(linkEntity.url, updatedLinkModel))
+  override def update(linkEntity: entity.Link): IO[Option[model.Link]] =
+    for
+      maybeLink <- data.get.map(_.get(linkEntity.url))
+      result <- maybeLink match {
+        case Some(linkModel) =>
+          val updatedLinkModel = dto.LinkEntityToModel(linkEntity, linkModel.createdAt)
+          data.update(_.updated(linkEntity.url, updatedLinkModel))
 
-                    IO.println(s"Successfully updated link with URL: ${linkEntity.url}")
+          IO.println(s"Successfully updated link with URL: ${linkEntity.url}")
 
-                    IO.pure(Some(updatedLinkModel))
-                case None =>
-                    IO.println(s"Link with URL ${linkEntity.url} not found")
-                    
-                    IO.pure(None)
-            }
-        yield result
+          IO.pure(Some(updatedLinkModel))
+        case None =>
+          IO.println(s"Link with URL ${linkEntity.url} not found")
 
-    override def delete(linkUrl: String): IO[Option[model.Link]] = 
-        for {
-            maybeLink <- data.get.map(_.get(linkUrl))
-            _ <- maybeLink match {
-                case Some(link) => 
-                    data.update(_ - linkUrl)
-                    IO.println(s"Successfully deleted link with url: $linkUrl")
-                case None => 
-                    IO.println(s"Link not found with url: $linkUrl")
-            }
-        } yield maybeLink
+          IO.pure(None)
+      }
+    yield result
 
-    override def getLinksByChatId(chatId: Long): IO[model.Links] = 
-        for
-            links <- data.get
-            selectedChatLinks = links.values.filter(_.chatId == chatId).toList
-        yield selectedChatLinks
+  override def delete(linkUrl: String): IO[Option[model.Link]] =
+    for {
+      maybeLink <- data.get.map(_.get(linkUrl))
+      _ <- maybeLink match {
+        case Some(link) =>
+          data.update(_ - linkUrl)
+          IO.println(s"Successfully deleted link with url: $linkUrl")
+        case None =>
+          IO.println(s"Link not found with url: $linkUrl")
+      }
+    } yield maybeLink
 
-    override def getLinks: IO[model.Links] = 
-        for
-            links <- data.get
-            linksList = links.values.toList
-        yield linksList
+  override def getLinksByChatId(chatId: Long): IO[model.Links] =
+    for
+      links <- data.get
+      selectedChatLinks = links.values.filter(_.chatId == chatId).toList
+    yield selectedChatLinks
+
+  override def getLinks: IO[model.Links] =
+    for
+      links <- data.get
+      linksList = links.values.toList
+    yield linksList

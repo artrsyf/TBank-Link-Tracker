@@ -6,8 +6,8 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class TelegramConfig(
-  botToken: String,
-  scrapperServiceUrl: String,
+    botToken: String,
+    scrapperServiceUrl: String,
 ) derives ConfigReader
 
 object TelegramConfig:

@@ -12,71 +12,72 @@ import linkscrapper.Link.usecase.LinkUsecase
 import linkscrapper.pkg.Controller.Controller
 
 object ChatMiddlewares:
-    def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
-        chatId =>
-            checkChat(chatId).map {
-                case true  => Right(chatId)
-                case false => Left(dto.ApiErrorResponse("Чат не найден"))
-            }
+  def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
+    chatId =>
+      checkChat(chatId).map {
+        case true  => Right(chatId)
+        case false => Left(dto.ApiErrorResponse("Чат не найден"))
+      }
 
 class LinkHandler(
     chatUsecase: ChatUsecase[IO],
     linkUsecase: LinkUsecase[IO],
 ) extends Controller[IO]:
-    private val checkChat = ChatMiddlewares.chatValidation(chatUsecase.check)
+  private val checkChat = ChatMiddlewares.chatValidation(chatUsecase.check)
 
-    private def withChatValidation[A, B](
-        logic: Long => IO[Either[dto.ApiErrorResponse, B]]
-    ): Long => IO[Either[dto.ApiErrorResponse, B]] =
-        chatId => checkChat(chatId).flatMap {
-            case Right(validChatId) => logic(validChatId)
-            case Left(error)        => IO.pure(Left(error))
-        }
+  private def withChatValidation[A, B](
+      logic: Long => IO[Either[dto.ApiErrorResponse, B]]
+  ): Long => IO[Either[dto.ApiErrorResponse, B]] =
+    chatId =>
+      checkChat(chatId).flatMap {
+        case Right(validChatId) => logic(validChatId)
+        case Left(error)        => IO.pure(Left(error))
+      }
 
-    private val getLinks: ServerEndpoint[Any, IO] = 
-        LinkEndpoints.getLinksEndpoint.serverLogic { chatId =>
-            withChatValidation { _ =>
-                linkUsecase.getLinksByChatId(chatId)
-                    .map(links => Right(links.map(link => dto.LinkResponse(link.id, link.url, link.tags, link.filters))))
-            }(chatId)
-        }
+  private val getLinks: ServerEndpoint[Any, IO] =
+    LinkEndpoints.getLinksEndpoint.serverLogic { chatId =>
+      withChatValidation { _ =>
+        linkUsecase.getLinksByChatId(chatId)
+          .map(links => Right(links.map(link => dto.LinkResponse(link.id, link.url, link.tags, link.filters))))
+      }(chatId)
+    }
 
-    private val addLink: ServerEndpoint[Any, IO] = 
-        LinkEndpoints.addLinkEndpoint.serverLogic { case (chatId, addRequest) =>
-            withChatValidation { _ =>
-                linkUsecase.addLink(addRequest, chatId)
-                    .flatMap{
-                        case Right(link) =>
-                            IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
-                        case Left(errorResp) =>
-                            IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
-                    }
-            }(chatId)
-        }
+  private val addLink: ServerEndpoint[Any, IO] =
+    LinkEndpoints.addLinkEndpoint.serverLogic { case (chatId, addRequest) =>
+      withChatValidation { _ =>
+        linkUsecase.addLink(addRequest, chatId)
+          .flatMap {
+            case Right(link) =>
+              IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
+            case Left(errorResp) =>
+              IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
+          }
+      }(chatId)
+    }
 
-    private val removeLink: ServerEndpoint[Any, IO] = 
-        LinkEndpoints.removeLinkEndpoint.serverLogic { case (chatId, removeRequest) =>
-            withChatValidation { _ =>
-                linkUsecase.removeLink(removeRequest.link, chatId)
-                    .flatMap{
-                        case Right(link) =>
-                            IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
-                        case Left(errorResp) =>
-                            IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
-                    }
-            }(chatId)
-        }
+  private val removeLink: ServerEndpoint[Any, IO] =
+    LinkEndpoints.removeLinkEndpoint.serverLogic { case (chatId, removeRequest) =>
+      withChatValidation { _ =>
+        linkUsecase.removeLink(removeRequest.link, chatId)
+          .flatMap {
+            case Right(link) =>
+              IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
+            case Left(errorResp) =>
+              IO.pure(Left(dto.ApiErrorResponse(errorResp.message)))
+          }
+      }(chatId)
+    }
 
-    override def endpoints: List[ServerEndpoint[Any, IO]] =
-        List(
-            getLinks,
-            addLink,
-            removeLink
-        )
+  override def endpoints: List[ServerEndpoint[Any, IO]] =
+    List(
+      getLinks,
+      addLink,
+      removeLink
+    )
 
 object LinkHandler:
   def make(
-    chatUsecase: ChatUsecase[IO],
-    linkUsecase: LinkUsecase[IO],
+      chatUsecase: ChatUsecase[IO],
+      linkUsecase: LinkUsecase[IO],
   ): LinkHandler =
     LinkHandler(chatUsecase, linkUsecase)

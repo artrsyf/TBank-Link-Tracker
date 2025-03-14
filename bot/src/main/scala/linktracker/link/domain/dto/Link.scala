@@ -3,7 +3,7 @@ package linktracker.link.domain.dto
 import sttp.tapir.Schema
 import tethys.{JsonReader, JsonWriter}
 
-type Tags = List[String]
+type Tags    = List[String]
 type Filters = List[String]
 
 final case class ApiErrorResponse(

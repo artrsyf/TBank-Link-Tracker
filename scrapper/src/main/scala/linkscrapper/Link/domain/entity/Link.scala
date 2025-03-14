@@ -2,9 +2,9 @@ package linkscrapper.Link.domain.entity
 
 import java.time.Instant
 
-type Tags = List[String]
+type Tags    = List[String]
 type Filters = List[String]
-type Links = List[Link]
+type Links   = List[Link]
 
 final case class Link(
     id: Long,

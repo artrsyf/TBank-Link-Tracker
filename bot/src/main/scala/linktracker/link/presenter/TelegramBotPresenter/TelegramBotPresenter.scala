@@ -26,21 +26,19 @@ trait CommandHandler[F[_]] {
 }
 
 object Commands {
-  
+
   def all[F[_]: Async: Parallel](bot: TelegramBotPresenter[F])(using api: Api[F]): Map[String, CommandHandler[F]] = Map(
-    "/start"   -> new CommandHandler[F] {
-      val description = CommandDescription.startCommandDescription
+    "/start" -> new CommandHandler[F] {
+      val description                                 = CommandDescription.startCommandDescription
       def execute(chatId: Long, args: Option[String]) = bot.signup(chatId)
     },
-
-    "/track"   -> new CommandHandler[F] {
+    "/track" -> new CommandHandler[F] {
       val description = CommandDescription.trackCommandDescription
       def execute(chatId: Long, args: Option[String]) = args match {
         case Some(url) => bot.trackUrl(chatId, url)
         case None      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
       }
     },
-
     "/untrack" -> new CommandHandler[F] {
       val description = CommandDescription.untrackCommandDescription
       def execute(chatId: Long, args: Option[String]) = args match {
@@ -48,19 +46,17 @@ object Commands {
         case None      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
       }
     },
-
-    "/list"    -> new CommandHandler[F] {
-      val description = CommandDescription.listCommandDescription
+    "/list" -> new CommandHandler[F] {
+      val description                                 = CommandDescription.listCommandDescription
       def execute(chatId: Long, args: Option[String]) = bot.getLinkList(chatId)
     },
-
-    "/help"    -> new CommandHandler[F] {
+    "/help" -> new CommandHandler[F] {
       val description = CommandDescription.helpCommandDescription
       def execute(chatId: Long, args: Option[String]) = {
         val helpText = all(bot)
           .map { case (cmd, handler) => s"$cmd - ${handler.description}" }
           .mkString("\n")
-        
+
         bot.helpReference(chatId, helpText)
       }
     }
@@ -68,23 +64,23 @@ object Commands {
 }
 
 class TelegramBotPresenter[F[_]: Async: Parallel](
-  client: SttpBackend[F, Any],
-  telegramConfig: TelegramConfig,
+    client: SttpBackend[F, Any],
+    telegramConfig: TelegramConfig,
 )(using api: Api[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
   private def basicSecuredRequest(chatId: Long) = basicRequest
-      .header("Tg-Chat-Id", chatId.toString)
-  
+    .header("Tg-Chat-Id", chatId.toString)
+
   override def onMessage(msg: Message): F[Unit] = {
     val chatId = ChatIntId(msg.chat.id)
     msg.text match {
       case Some(text) if text.startsWith("/") =>
-        val parts = text.split(" ", 2)
+        val parts   = text.split(" ", 2)
         val command = parts.head
-        val args = parts.lift(1).map(_.trim)
+        val args    = parts.lift(1).map(_.trim)
 
         Commands.all(this).get(command) match {
           case Some(handler) => handler.execute(msg.chat.id, args)
-          case None => Methods.sendMessage(chatId, ResponseMessage.UnknownCommandMessage.message).exec.void
+          case None          => Methods.sendMessage(chatId, ResponseMessage.UnknownCommandMessage.message).exec.void
         }
 
       case _ =>
@@ -94,7 +90,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
   override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
     Methods.sendMessage(
-      ChatIntId(chatId), 
+      ChatIntId(chatId),
       ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message,
     ).exec.void
   }
@@ -129,7 +125,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       .delete(uri"${telegramConfig.scrapperServiceUrl}/links")
       .body(removeLinkRequest.asJson)
       .contentType("application/json")
-    
+
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkDeletionMessage.message).exec.void
@@ -156,7 +152,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       .post(uri"${telegramConfig.scrapperServiceUrl}/links")
       .body(addLinkRequest.asJson)
       .contentType("application/json")
-    
+
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
@@ -181,8 +177,9 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         case Right(json) =>
           val links = json.jsonAs[List[dto.LinkResponse]] match
             case Right(linkList) => linkList
-            case Left(error) => 
-              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.toString()).message).exec.void
+            case Left(error) =>
+              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.toString()).message)
+                .exec.void
               List()
           if links.isEmpty then
             Methods.sendMessage(ChatIntId(chatId), ResponseMessage.EmptyLinkListMessage.message).exec.void
@@ -199,7 +196,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
   def helpReference(chatId: Long, helpText: String): F[Unit] = {
     Methods.sendMessage(
-      ChatIntId(chatId), 
+      ChatIntId(chatId),
       ResponseMessage.HelpReferenceMessage(helpText).message
     ).exec.void
   }

@@ -8,60 +8,59 @@ import linkscrapper.Link.domain.entity.LinkError
 import linkscrapper.Link.repository.LinkRepository
 
 trait LinkUsecase[F[_]]:
-    def addLink(createRequest: dto.AddLinkRequest, chatId: Long): F[Either[LinkError, entity.Link]]
-    def updateLink(updatedLinkEntity: entity.Link): F[Either[LinkError, entity.Link]]
-    def removeLink(linkUrl: String, chatId: Long): F[Either[LinkError, entity.Link]]
-    def getLinksByChatId(chatId: Long): F[entity.Links]
-    def getLinks: F[entity.Links]
+  def addLink(createRequest: dto.AddLinkRequest, chatId: Long): F[Either[LinkError, entity.Link]]
+  def updateLink(updatedLinkEntity: entity.Link): F[Either[LinkError, entity.Link]]
+  def removeLink(linkUrl: String, chatId: Long): F[Either[LinkError, entity.Link]]
+  def getLinksByChatId(chatId: Long): F[entity.Links]
+  def getLinks: F[entity.Links]
 
 object LinkUsecase:
-    final private class Impl(
-        linkRepo: LinkRepository[IO],
-        clients: List[String]
-    ) extends LinkUsecase[IO]:
-        override def addLink(createRequest: dto.AddLinkRequest, chatId: Long): IO[Either[LinkError, entity.Link]] = 
-            if clients.exists(client => createRequest.link.startsWith(client)) then
-                for 
-                    linkEntity <- IO.pure(dto.LinkAddRequestToEntity(createRequest, chatId))
-                    _ <- linkRepo.create(linkEntity)
-                yield Right(linkEntity)
-            else
-                IO.pure(Left(LinkError.ErrInvalidUrl))
+  final private class Impl(
+      linkRepo: LinkRepository[IO],
+      clients: List[String]
+  ) extends LinkUsecase[IO]:
+    override def addLink(createRequest: dto.AddLinkRequest, chatId: Long): IO[Either[LinkError, entity.Link]] =
+      if clients.exists(client => createRequest.link.startsWith(client)) then
+        for
+          linkEntity <- IO.pure(dto.LinkAddRequestToEntity(createRequest, chatId))
+          _          <- linkRepo.create(linkEntity)
+        yield Right(linkEntity)
+      else
+        IO.pure(Left(LinkError.ErrInvalidUrl))
 
-        override def updateLink(updatedLinkEntity: entity.Link): IO[Either[LinkError, entity.Link]] =
-            for 
-                maybeUpdatedLink <- linkRepo.update(updatedLinkEntity)
-                result <- maybeUpdatedLink match {
-                    case Some(updatedLinkModel) =>
-                        IO.pure(Right(dto.LinkModelToEntity(updatedLinkModel)))
-                    case None =>
-                        IO.pure(Left(LinkError.ErrNoSuchLink))
-                }
-            yield result
+    override def updateLink(updatedLinkEntity: entity.Link): IO[Either[LinkError, entity.Link]] =
+      for
+        maybeUpdatedLink <- linkRepo.update(updatedLinkEntity)
+        result <- maybeUpdatedLink match {
+          case Some(updatedLinkModel) =>
+            IO.pure(Right(dto.LinkModelToEntity(updatedLinkModel)))
+          case None =>
+            IO.pure(Left(LinkError.ErrNoSuchLink))
+        }
+      yield result
 
-        override def removeLink(linkUrl: String, chatId: Long): IO[Either[LinkError, entity.Link]] = 
-            for 
-                deletedLinkModel <- linkRepo.delete(linkUrl)
-                result <- deletedLinkModel match {
-                    case Some(link) => 
-                        IO.pure(Right(dto.LinkModelToEntity(link)))
-                    case _ => 
-                        IO.pure(Left(LinkError.ErrNoSuchLink))
-                }
-            yield result
+    override def removeLink(linkUrl: String, chatId: Long): IO[Either[LinkError, entity.Link]] =
+      for
+        deletedLinkModel <- linkRepo.delete(linkUrl)
+        result <- deletedLinkModel match {
+          case Some(link) =>
+            IO.pure(Right(dto.LinkModelToEntity(link)))
+          case _ =>
+            IO.pure(Left(LinkError.ErrNoSuchLink))
+        }
+      yield result
 
-        override def getLinksByChatId(chatId: Long): IO[entity.Links] = 
-            for 
-                modelLinks <- linkRepo.getLinksByChatId(chatId)
-                entityLinks = modelLinks.map{ linkModel => dto.LinkModelToEntity(linkModel) }
-            yield entityLinks
+    override def getLinksByChatId(chatId: Long): IO[entity.Links] =
+      for
+        modelLinks <- linkRepo.getLinksByChatId(chatId)
+        entityLinks = modelLinks.map { linkModel => dto.LinkModelToEntity(linkModel) }
+      yield entityLinks
 
-        
-        override def getLinks: IO[entity.Links] = 
-            for 
-                modelLinks <- linkRepo.getLinks
-                entityLinks = modelLinks.map{ linkModel => dto.LinkModelToEntity(linkModel) }
-            yield entityLinks
-        
-    def make(repo: LinkRepository[IO], clients: List[String]): LinkUsecase[IO] =
-        Impl(repo, clients)
+    override def getLinks: IO[entity.Links] =
+      for
+        modelLinks <- linkRepo.getLinks
+        entityLinks = modelLinks.map { linkModel => dto.LinkModelToEntity(linkModel) }
+      yield entityLinks
+
+  def make(repo: LinkRepository[IO], clients: List[String]): LinkUsecase[IO] =
+    Impl(repo, clients)

@@ -6,8 +6,8 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class AppConfig(
-  scheduler: SchedulerConfig,
-  server: ServerConfig,
+    scheduler: SchedulerConfig,
+    server: ServerConfig,
 ) derives ConfigReader
 
 object AppConfig:
