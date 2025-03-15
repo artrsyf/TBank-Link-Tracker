@@ -86,7 +86,7 @@ class QuartzScheduler(
             }
         }.getOrElse(IO.pure(None))
       }
-      groupedLinks = links.groupBy(_.url)
+      groupedLinks = updatedLinks.flatten.groupBy(_.url)
       linkUpdates = groupedLinks.flatMap { case (url, linkList) =>
         val tgChatIds = linkList.map(link => link.chatId).distinct
 
