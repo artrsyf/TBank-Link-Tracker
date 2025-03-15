@@ -21,7 +21,7 @@ import linktracker.config.TelegramConfig
 import linktracker.dialog.domain.model.*
 import linktracker.dialog.repository.DialogRepository
 import linktracker.link.domain.dto
-import linktracker.link.domain.entity.{CommandDescription, ResponseMessage}
+import linktracker.link.domain.entity.{CallbackEvents, CommandDescription, ResponseMessage}
 import linktracker.link.presenter.LinkPresenter
 
 trait CommandHandler[F[_]] {
@@ -43,7 +43,7 @@ object Commands {
           bot.changeDialogState(chatId, AwaitingTags(chatId, url)) *>
           Methods.sendMessage(
             ChatIntId(chatId), 
-            "Введите тэги (опционально)",
+            ResponseMessage.EnterTagsMessage.message,
             replyMarkup = Some(bot.cancelTagsKeyboard),
           ).exec.void
         case _      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
@@ -82,13 +82,13 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     .header("Tg-Chat-Id", chatId.toString)
 
   private val cancelTagsButton =
-    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = "cancel_tags")
+    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = CallbackEvents.cancelTagsButtonPressed)
 
   val cancelTagsKeyboard =
     InlineKeyboardMarkups.singleButton(cancelTagsButton)
 
   private val cancelFiltersButton =
-    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = "cancel_filters")
+    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = CallbackEvents.cancelFiltersButtonPressed)
 
   val cancelFiltersKeyboard =
     InlineKeyboardMarkups.singleButton(cancelFiltersButton)
@@ -117,7 +117,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       dialogRepo.put(chatId, AwaitingFilters(chatId, url, tags)) *>
       Methods.sendMessage(
         ChatIntId(chatId), 
-        "Настройте фильтры (опционально, формат key:value)",
+        ResponseMessage.EnterFiltersMessage.message,
         replyMarkup = Some(cancelFiltersKeyboard),
       ).exec.void
 
@@ -134,7 +134,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
   override def onCallbackQuery(query: CallbackQuery): F[Unit] = {
     val callbackData = query.data.getOrElse("")
     callbackData match {
-      case "cancel_tags" | "cancel_filters" =>
+      case CallbackEvents.cancelTagsButtonPressed | CallbackEvents.cancelFiltersButtonPressed =>
         dialogRepo.get(query.from.id).flatMap {
           case Some(currentState) => 
             handleDialogState(currentState, "")
@@ -144,7 +144,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         }
 
       case _ =>
-        Methods.sendMessage(ChatIntId(query.from.id), "Неизвестная кнопка").exec.void
+        Methods.sendMessage(ChatIntId(query.from.id), ResponseMessage.UnknownButtonMessage.message).exec.void
     }
   }
 

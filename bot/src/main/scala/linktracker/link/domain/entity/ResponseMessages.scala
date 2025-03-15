@@ -76,3 +76,15 @@ object ResponseMessage:
   case class HelpReferenceMessage(commandsText: String) extends ResponseMessage:
     override def message: String =
       s"ℹ️ Справка по командам:\n$commandsText"
+
+  case object EnterTagsMessage extends ResponseMessage:
+    override def message: String =
+      "Введите тэги (опционально)"
+
+  case object EnterFiltersMessage extends ResponseMessage:
+    override def message: String =
+      "Настройте фильтры (опционально, формат key:value)"
+
+  case object UnknownButtonMessage extends ResponseMessage:
+    override def message: String =
+      "⚠ Неизвестная кнопка!"
