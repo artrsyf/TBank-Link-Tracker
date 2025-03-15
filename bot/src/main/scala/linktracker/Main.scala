@@ -22,6 +22,7 @@ import tethys._
 import tethys.jackson._
 
 import linktracker.config.AppConfig
+import linkscrapper.dialog.repository.InMemory.InMemoryDialogRepository
 import linktracker.link.delivery.http._
 import linktracker.link.presenter.TelegramBotPresenter.TelegramBotPresenter
 import linktracker.link.usecase.LinkUsecase
@@ -38,7 +39,8 @@ object Main extends IOApp {
 
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
-      bot         = new TelegramBotPresenter[IO](sttpClient, appConfig.telegram)
+      dialogRepository = new InMemoryDialogRepository
+      bot         = new TelegramBotPresenter[IO](sttpClient, dialogRepository, appConfig.telegram)
       linkUsecase = LinkUsecase.make(bot)
 
       endpoints <-

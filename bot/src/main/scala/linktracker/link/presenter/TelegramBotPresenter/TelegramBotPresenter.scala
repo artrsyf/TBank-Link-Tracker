@@ -8,14 +8,18 @@ import cats.syntax.all._
 import sttp.client3._
 import sttp.model.StatusCode
 
+import telegramium.bots.CallbackQuery
 import telegramium.bots.high._
 import telegramium.bots.high.implicits._
 import telegramium.bots.{ChatIntId, Message}
+import telegramium.bots.high.keyboards._
 
 import tethys._
 import tethys.jackson._
 
 import linktracker.config.TelegramConfig
+import linktracker.dialog.domain.model.*
+import linktracker.dialog.repository.DialogRepository
 import linktracker.link.domain.dto
 import linktracker.link.domain.entity.{CommandDescription, ResponseMessage}
 import linktracker.link.presenter.LinkPresenter
@@ -26,7 +30,6 @@ trait CommandHandler[F[_]] {
 }
 
 object Commands {
-
   def all[F[_]: Async: Parallel](bot: TelegramBotPresenter[F])(using api: Api[F]): Map[String, CommandHandler[F]] = Map(
     "/start" -> new CommandHandler[F] {
       val description                                 = CommandDescription.startCommandDescription
@@ -35,8 +38,15 @@ object Commands {
     "/track" -> new CommandHandler[F] {
       val description = CommandDescription.trackCommandDescription
       def execute(chatId: Long, args: Option[String]) = args match {
-        case Some(url) => bot.trackUrl(chatId, url)
-        case None      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
+        case Some(url) if url.nonEmpty => 
+          val trackWithUrl = bot.trackUrlWithMeta(chatId, url)
+          bot.changeDialogState(chatId, AwaitingTags(chatId, url)) *>
+          Methods.sendMessage(
+            ChatIntId(chatId), 
+            "Введите тэги (опционально)",
+            replyMarkup = Some(bot.cancelTagsKeyboard),
+          ).exec.void
+        case _      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
       }
     },
     "/untrack" -> new CommandHandler[F] {
@@ -65,12 +75,25 @@ object Commands {
 
 class TelegramBotPresenter[F[_]: Async: Parallel](
     client: SttpBackend[F, Any],
+    dialogRepo: DialogRepository[F],
     telegramConfig: TelegramConfig,
 )(using api: Api[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
   private def basicSecuredRequest(chatId: Long) = basicRequest
     .header("Tg-Chat-Id", chatId.toString)
 
-  override def onMessage(msg: Message): F[Unit] = {
+  private val cancelTagsButton =
+    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = "cancel_tags")
+
+  val cancelTagsKeyboard =
+    InlineKeyboardMarkups.singleButton(cancelTagsButton)
+
+  private val cancelFiltersButton =
+    InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = "cancel_filters")
+
+  val cancelFiltersKeyboard =
+    InlineKeyboardMarkups.singleButton(cancelFiltersButton)
+
+  private def handleCommand(msg: Message): F[Unit] = {
     val chatId = ChatIntId(msg.chat.id)
     msg.text match {
       case Some(text) if text.startsWith("/") =>
@@ -88,12 +111,62 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     }
   }
 
+  private def handleDialogState(state: DialogState, text: String): F[Unit] = state match {
+    case AwaitingTags(chatId, url) =>
+      val tags = text.split(" ").toList.filter(_.nonEmpty)
+      dialogRepo.put(chatId, AwaitingFilters(chatId, url, tags)) *>
+      Methods.sendMessage(
+        ChatIntId(chatId), 
+        "Настройте фильтры (опционально, формат key:value)",
+        replyMarkup = Some(cancelFiltersKeyboard),
+      ).exec.void
+
+    case AwaitingFilters(chatId, url, tags) =>
+      val filters = text.split(" ").toList.filter(_.nonEmpty)
+      dialogRepo.delete(chatId) *>
+      trackUrlWithMeta(chatId, url)(tags, filters)
+
+    case _ =>
+      println("Dialog was handled with unknown state")
+      Async[F].pure(())
+  }
+
+  override def onCallbackQuery(query: CallbackQuery): F[Unit] = {
+    val callbackData = query.data.getOrElse("")
+    callbackData match {
+      case "cancel_tags" | "cancel_filters" =>
+        dialogRepo.get(query.from.id).flatMap {
+          case Some(currentState) => 
+            handleDialogState(currentState, "")
+          case _ => 
+            println("Entered in callback without dialog state")
+            Async[F].pure(())
+        }
+
+      case _ =>
+        Methods.sendMessage(ChatIntId(query.from.id), "Неизвестная кнопка").exec.void
+    }
+  }
+
+  override def onMessage(msg: Message): F[Unit] = {
+    val chatId = msg.chat.id
+    val text = msg.text.getOrElse("")
+
+    dialogRepo.get(chatId).flatMap {
+      case Some(state) => handleDialogState(state, text)
+      case None => handleCommand(msg)
+    }
+  }
+
   override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
     Methods.sendMessage(
       ChatIntId(chatId),
       ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message,
     ).exec.void
   }
+
+  def changeDialogState(chatId: Long, state: DialogState): F[Unit] = 
+    dialogRepo.put(chatId, state)
 
   def signup(chatId: Long): F[Unit] = {
     val request = basicRequest
@@ -141,11 +214,11 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     }
   }
 
-  def trackUrl(chatId: Long, url: String): F[Unit] = {
+  def trackUrlWithMeta(chatId: Long, url: String)(tags: List[String], filters: List[String]): F[Unit] = {
     val addLinkRequest = dto.AddLinkRequest(
       link = url,
-      tags = List("string"),
-      filters = List("string"),
+      tags = tags,
+      filters = filters,
     )
 
     val request = basicSecuredRequest(chatId)
@@ -158,6 +231,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
 
       case Right(response) =>
+        println(response)
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkAdditionMessage.message).exec.void
 
       case Left(_: SttpClientException.ConnectException) =>
