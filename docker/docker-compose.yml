@@ -1,5 +1,8 @@
 version: '3.8'
 
+networks:
+  link-scrapper-network:
+
 services:
   bot:
     image: bot-api:0.1.0-SNAPSHOT
@@ -10,6 +13,8 @@ services:
       - 8081
     depends_on:
       - scrapper
+    networks:
+      - link-scrapper-network
 
   scrapper:
     image: scrapper-api:0.1.0-SNAPSHOT
@@ -18,3 +23,5 @@ services:
       - "8080:8080"
     expose:
       - 8080
+    networks:
+      - link-scrapper-network
