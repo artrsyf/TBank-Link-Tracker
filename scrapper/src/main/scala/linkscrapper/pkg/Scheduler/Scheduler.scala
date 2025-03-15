@@ -62,7 +62,7 @@ class QuartzScheduler(
       _ <- IO.delay(println("Scheduled link fetch"))
 
       links <- linkUsecase.getLinks
-      _     <- IO.delay(println(s"Links: $links"))
+      _     <- IO.delay(println(s"Links to update: $links"))
       updatedLinks <- links.traverse { link =>
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
@@ -101,7 +101,7 @@ class QuartzScheduler(
         }
       }.toList
       _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <- IO.delay(println(s"Sent updated links to tg bot"))
+      _ <- IO.delay(println(s"Sent updated links to tg bot")).whenA(linkUpdates.nonEmpty)
     } yield ()
 
   def runScheduler: IO[Unit] = {
