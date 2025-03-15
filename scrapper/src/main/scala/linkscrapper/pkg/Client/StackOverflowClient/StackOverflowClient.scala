@@ -50,13 +50,14 @@ object StackOverflowClient:
 
     override def getQuestionById(id: Long): IO[Either[String, StackOverflowQuestion]] = {
       val request = basicRequest
-        .get(uri"${stackOverflowApiUrl}")
+        .get(uri"${stackOverflowApiUrl(id)}")
 
       client.send(request).fmap { response =>
         response.body match
           case Right(json) =>
             json.jsonAs[StackOverflowResponse] match
-              case Right(response) if response.items.nonEmpty => Right(response.items.head)
+              case Right(response) if response.items.nonEmpty => 
+                Right(response.items.head)
               case Right(_)                                   => Left("Question not found")
               case Left(err)                                  => Left(s"JSON decode error: $err")
 
