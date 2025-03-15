@@ -38,15 +38,15 @@ object Commands {
     "/track" -> new CommandHandler[F] {
       val description = CommandDescription.trackCommandDescription
       def execute(chatId: Long, args: Option[String]) = args match {
-        case Some(url) if url.nonEmpty => 
+        case Some(url) if url.nonEmpty =>
           val trackWithUrl = bot.trackUrlWithMeta(chatId, url)
           bot.changeDialogState(chatId, AwaitingTags(chatId, url)) *>
-          Methods.sendMessage(
-            ChatIntId(chatId), 
-            ResponseMessage.EnterTagsMessage.message,
-            replyMarkup = Some(bot.cancelTagsKeyboard),
-          ).exec.void
-        case _      => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
+            Methods.sendMessage(
+              ChatIntId(chatId),
+              ResponseMessage.EnterTagsMessage.message,
+              replyMarkup = Some(bot.cancelTagsKeyboard),
+            ).exec.void
+        case _ => Methods.sendMessage(ChatIntId(chatId), ResponseMessage.MissingUrlArgMessage.message).exec.void
       }
     },
     "/untrack" -> new CommandHandler[F] {
@@ -115,16 +115,16 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     case AwaitingTags(chatId, url) =>
       val tags = text.split(" ").toList.filter(_.nonEmpty)
       dialogRepo.put(chatId, AwaitingFilters(chatId, url, tags)) *>
-      Methods.sendMessage(
-        ChatIntId(chatId), 
-        ResponseMessage.EnterFiltersMessage.message,
-        replyMarkup = Some(cancelFiltersKeyboard),
-      ).exec.void
+        Methods.sendMessage(
+          ChatIntId(chatId),
+          ResponseMessage.EnterFiltersMessage.message,
+          replyMarkup = Some(cancelFiltersKeyboard),
+        ).exec.void
 
     case AwaitingFilters(chatId, url, tags) =>
       val filters = text.split(" ").toList.filter(_.nonEmpty)
       dialogRepo.delete(chatId) *>
-      trackUrlWithMeta(chatId, url)(tags, filters)
+        trackUrlWithMeta(chatId, url)(tags, filters)
 
     case _ =>
       println("Dialog was handled with unknown state")
@@ -136,9 +136,9 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     callbackData match {
       case CallbackEvents.cancelTagsButtonPressed | CallbackEvents.cancelFiltersButtonPressed =>
         dialogRepo.get(query.from.id).flatMap {
-          case Some(currentState) => 
+          case Some(currentState) =>
             handleDialogState(currentState, "")
-          case _ => 
+          case _ =>
             println("Entered in callback without dialog state")
             Async[F].pure(())
         }
@@ -150,11 +150,11 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
   override def onMessage(msg: Message): F[Unit] = {
     val chatId = msg.chat.id
-    val text = msg.text.getOrElse("")
+    val text   = msg.text.getOrElse("")
 
     dialogRepo.get(chatId).flatMap {
       case Some(state) => handleDialogState(state, text)
-      case None => handleCommand(msg)
+      case None        => handleCommand(msg)
     }
   }
 
@@ -165,7 +165,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     ).exec.void
   }
 
-  def changeDialogState(chatId: Long, state: DialogState): F[Unit] = 
+  def changeDialogState(chatId: Long, state: DialogState): F[Unit] =
     dialogRepo.put(chatId, state)
 
   def signup(chatId: Long): F[Unit] = {

@@ -56,10 +56,10 @@ object StackOverflowClient:
         response.body match
           case Right(json) =>
             json.jsonAs[StackOverflowResponse] match
-              case Right(response) if response.items.nonEmpty => 
+              case Right(response) if response.items.nonEmpty =>
                 Right(response.items.head)
-              case Right(_)                                   => Left("Question not found")
-              case Left(err)                                  => Left(s"JSON decode error: $err")
+              case Right(_)  => Left("Question not found")
+              case Left(err) => Left(s"JSON decode error: $err")
 
           case Left(error) =>
             Left(s"HTTP error: $error")

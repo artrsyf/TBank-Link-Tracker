@@ -10,7 +10,7 @@ case class AwaitingTags(
 ) extends DialogState
 
 case class AwaitingFilters(
-    chatId: Long, 
-    url: String, 
+    chatId: Long,
+    url: String,
     tags: List[String],
 ) extends DialogState

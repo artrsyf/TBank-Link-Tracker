@@ -40,8 +40,8 @@ object Main extends IOApp {
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
       dialogRepository = new InMemoryDialogRepository
-      bot         = new TelegramBotPresenter[IO](sttpClient, dialogRepository, appConfig.telegram)
-      linkUsecase = LinkUsecase.make(bot)
+      bot              = new TelegramBotPresenter[IO](sttpClient, dialogRepository, appConfig.telegram)
+      linkUsecase      = LinkUsecase.make(bot)
 
       endpoints <-
         IO {
