@@ -61,7 +61,7 @@ object Main extends IOApp {
 
       server = EmberServerBuilder
         .default[IO]
-        .withHost(Host.fromString("localhost").get)
+        .withHost(Host.fromString("0.0.0.0").get) // docker fix?
         .withPort(port)
         .withHttpApp(Router("/" -> routes).orNotFound)
         .build
