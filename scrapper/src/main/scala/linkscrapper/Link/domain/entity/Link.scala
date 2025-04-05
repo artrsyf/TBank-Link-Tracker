@@ -1,4 +1,4 @@
-package linkscrapper.Link.domain.entity
+package linkscrapper.link.domain.entity
 
 import java.time.Instant
 

@@ -18,8 +18,8 @@ import tethys._
 import tethys.jackson._
 
 import linkscrapper.config.SchedulerConfig
-import linkscrapper.Link.usecase.LinkUsecase
-import linkscrapper.Link.domain.dto
+import linkscrapper.link.usecase.LinkUsecase
+import linkscrapper.link.domain.dto
 import linkscrapper.pkg.Client.LinkClient
 
 sealed trait ParentJob
@@ -62,7 +62,7 @@ class QuartzScheduler(
       _ <- IO.delay(println("Scheduled link fetch"))
 
       links <- linkUsecase.getLinks
-      _     <- IO.delay(println(s"Links to update: $links"))
+      _     <- IO.delay(println(s"Checking links: $links"))
       updatedLinks <- links.traverse { link =>
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
@@ -85,21 +85,27 @@ class QuartzScheduler(
                 IO.pure(None)
             }
         }.getOrElse(IO.pure(None))
-      }
-      groupedLinks = updatedLinks.flatten.groupBy(_.url)
-      linkUpdates = groupedLinks.flatMap { case (url, linkList) =>
-        val tgChatIds = linkList.map(link => link.chatId).distinct
+      }.map(_.flatten)
 
-        if (tgChatIds.nonEmpty) {
-          Some(dto.LinkUpdate(
-            url = url,
-            description = "Got update!",
-            tgChatIds = tgChatIds,
-          ))
-        } else {
-          None
+      _     <- IO.delay(println(s"Links to update: $updatedLinks"))
+
+      linkUpdates <- updatedLinks.traverse  { updatedLink =>
+        for
+          userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
+          _     <- IO.delay(println(s"Attaching userlinks: $userLinks"))
+          tgChatIds = userLinks.map(_.chatId)
+        yield {
+          if (tgChatIds.nonEmpty) then
+            Some(dto.LinkUpdate(
+              url = updatedLink.url,
+              description = "Got update!",
+              tgChatIds = tgChatIds,
+            ))
+          else
+            None
         }
-      }.toList
+      }.map(_.flatten)
+      
       _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
       _ <- IO.delay(println(s"Sent updated links to tg bot")).whenA(linkUpdates.nonEmpty)
     } yield ()

@@ -8,9 +8,9 @@ import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
 
-import linkscrapper.Chat.delivery.http.ChatHandler
+import linkscrapper.chat.delivery.http.ChatHandler
 import linkscrapper.config.AppConfig
-import linkscrapper.Link.delivery.http.LinkHandler
+import linkscrapper.link.delivery.http.LinkHandler
 import linkscrapper.pkg.Client.LinkClient
 import linkscrapper.pkg.Client.GitHubClient.GitHubClient
 import linkscrapper.pkg.Client.StackOverflowClient.StackOverflowClient

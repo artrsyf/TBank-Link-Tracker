@@ -1,4 +1,4 @@
-package linkscrapper.Link.domain.entity
+package linkscrapper.link.domain.entity
 
 sealed trait LinkError extends Throwable:
   def message: String

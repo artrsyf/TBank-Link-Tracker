@@ -1,14 +1,14 @@
-package linkscrapper.Link.delivery.http
+package linkscrapper.link.delivery.http
 
 import cats.effect.IO
 import cats.data.EitherT
 
 import sttp.tapir.server.ServerEndpoint
 
-import linkscrapper.Chat.usecase.ChatUsecase
-import linkscrapper.Link.domain.dto
-import linkscrapper.Link.endpoints.LinkEndpoints
-import linkscrapper.Link.usecase.LinkUsecase
+import linkscrapper.chat.usecase.ChatUsecase
+import linkscrapper.link.domain.dto
+import linkscrapper.link.endpoints.LinkEndpoints
+import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.pkg.Controller.Controller
 
 object ChatMiddlewares:
@@ -37,7 +37,7 @@ class LinkHandler(
   private val getLinks: ServerEndpoint[Any, IO] =
     LinkEndpoints.getLinksEndpoint.serverLogic { chatId =>
       withChatValidation { _ =>
-        linkUsecase.getLinksByChatId(chatId)
+        linkUsecase.getUserLinksByChatId(chatId)
           .map(links => Right(links.map(link => dto.LinkResponse(link.id, link.url, link.tags, link.filters))))
       }(chatId)
     }
@@ -45,7 +45,7 @@ class LinkHandler(
   private val addLink: ServerEndpoint[Any, IO] =
     LinkEndpoints.addLinkEndpoint.serverLogic { case (chatId, addRequest) =>
       withChatValidation { _ =>
-        linkUsecase.addLink(addRequest, chatId)
+        linkUsecase.addUserLink(addRequest, chatId)
           .flatMap {
             case Right(link) =>
               IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))
@@ -58,7 +58,7 @@ class LinkHandler(
   private val removeLink: ServerEndpoint[Any, IO] =
     LinkEndpoints.removeLinkEndpoint.serverLogic { case (chatId, removeRequest) =>
       withChatValidation { _ =>
-        linkUsecase.removeLink(removeRequest.link, chatId)
+        linkUsecase.removeUserLink(removeRequest.link, chatId)
           .flatMap {
             case Right(link) =>
               IO.pure(Right(dto.LinkResponse(link.id, link.url, link.tags, link.filters)))

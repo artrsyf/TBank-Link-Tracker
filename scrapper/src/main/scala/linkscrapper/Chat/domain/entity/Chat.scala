@@ -1,4 +1,4 @@
-package linkscrapper.Chat.domain.entity
+package linkscrapper.chat.domain.entity
 
 final case class Chat(
     chatId: Long,

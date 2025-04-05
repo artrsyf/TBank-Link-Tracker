@@ -1,17 +1,11 @@
-package linkscrapper.Link.domain.model
+package linkscrapper.link.domain.model
 
 import java.time.Instant
 
-type Tags    = List[String]
-type Filters = List[String]
 type Links   = List[Link]
 
 final case class Link(
     id: Long,
-    chatId: Long,
     url: String,
-    tags: Tags,
-    filters: Filters,
-    createdAt: Instant,
     updatedAt: Instant,
 )

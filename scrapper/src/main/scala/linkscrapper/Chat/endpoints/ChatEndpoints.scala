@@ -1,10 +1,10 @@
-package linkscrapper.Chat.endpoints
+package linkscrapper.chat.endpoints
 
 import sttp.tapir.*
 import sttp.tapir.json.tethysjson.jsonBody
 import sttp.model.StatusCode
 
-import linkscrapper.Chat.domain.dto
+import linkscrapper.chat.domain.dto
 
 object ChatEndpoints:
   val createChatEndpoint: Endpoint[

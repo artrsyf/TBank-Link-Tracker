@@ -1,4 +1,4 @@
-package linkscrapper.Chat.delivery.http
+package linkscrapper.chat.delivery.http
 
 import cats.data.EitherT
 import cats.effect.IO
@@ -6,10 +6,10 @@ import cats.implicits.catsSyntaxEither
 
 import sttp.tapir.server.ServerEndpoint
 
-import linkscrapper.Chat.domain.dto
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.endpoints.ChatEndpoints
-import linkscrapper.Chat.usecase.ChatUsecase
+import linkscrapper.chat.domain.dto
+import linkscrapper.chat.domain.entity
+import linkscrapper.chat.endpoints.ChatEndpoints
+import linkscrapper.chat.usecase.ChatUsecase
 import linkscrapper.pkg.Controller.Controller
 
 class ChatHandler(

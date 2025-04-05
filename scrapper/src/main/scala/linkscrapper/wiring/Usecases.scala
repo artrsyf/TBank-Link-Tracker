@@ -2,10 +2,10 @@ package linkscrapper.wiring
 
 import cats.effect.IO
 
-import linkscrapper.Chat.repository.ChatRepository
-import linkscrapper.Chat.usecase.ChatUsecase
-import linkscrapper.Link.repository.LinkRepository
-import linkscrapper.Link.usecase.LinkUsecase
+import linkscrapper.chat.repository.ChatRepository
+import linkscrapper.chat.usecase.ChatUsecase
+import linkscrapper.link.repository.LinkRepository
+import linkscrapper.link.usecase.LinkUsecase
 
 final case class Usecases(
     chatUsecase: ChatUsecase[IO],

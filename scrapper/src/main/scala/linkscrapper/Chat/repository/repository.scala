@@ -1,7 +1,7 @@
-package linkscrapper.Chat.repository
+package linkscrapper.chat.repository
 
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.domain.model
+import linkscrapper.chat.domain.entity
+import linkscrapper.chat.domain.model
 
 trait ChatRepository[F[_]]:
   def create(chatEntity: entity.Chat): F[model.Chat]

@@ -1,12 +1,12 @@
-package linkscrapper.Chat.domain.dto
+package linkscrapper.chat.domain.dto
 
 import java.time.Instant
 
 import sttp.tapir.Schema
 import tethys.{JsonReader, JsonWriter}
 
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.domain.model
+import linkscrapper.chat.domain.entity
+import linkscrapper.chat.domain.model
 
 final case class ApiErrorResponse(
     error: String,

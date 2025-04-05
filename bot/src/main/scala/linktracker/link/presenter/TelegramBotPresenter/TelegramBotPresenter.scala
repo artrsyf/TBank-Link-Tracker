@@ -181,7 +181,8 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
             Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedRegisterMessage.message).exec.void
         }
 
-      case Left(_: SttpClientException.ConnectException) =>
+      case Left(ex: SttpClientException.ConnectException) =>
+        println(ex)
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
@@ -206,7 +207,8 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       case Right(response) =>
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkDeltionMessage.message).exec.void
 
-      case Left(_: SttpClientException.ConnectException) =>
+      case Left(ex: SttpClientException.ConnectException) =>
+        println(ex)
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
@@ -231,10 +233,10 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
 
       case Right(response) =>
-        println(response)
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkAdditionMessage.message).exec.void
 
-      case Left(_: SttpClientException.ConnectException) =>
+      case Left(ex: SttpClientException.ConnectException) =>
+        println(ex)
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>

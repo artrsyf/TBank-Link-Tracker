@@ -1,4 +1,4 @@
-package linkscrapper.Chat.domain.model
+package linkscrapper.chat.domain.model
 
 import java.time.Instant
 

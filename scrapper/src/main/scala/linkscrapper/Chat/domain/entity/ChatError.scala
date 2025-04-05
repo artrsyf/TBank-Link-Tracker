@@ -1,4 +1,4 @@
-package linkscrapper.Chat.domain.entity
+package linkscrapper.chat.domain.entity
 
 sealed trait ChatError extends Throwable:
   def message: String

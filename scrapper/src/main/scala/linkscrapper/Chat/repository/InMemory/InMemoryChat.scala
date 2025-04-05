@@ -1,14 +1,14 @@
-package linkscrapper.Chat.repository.InMemory
+package linkscrapper.chat.repository.InMemory
 
 import java.time.Instant
 
 import cats.effect.Ref
 import cats.effect.IO
 
-import linkscrapper.Chat.domain.dto
-import linkscrapper.Chat.domain.entity
-import linkscrapper.Chat.domain.model
-import linkscrapper.Chat.repository
+import linkscrapper.chat.domain.dto
+import linkscrapper.chat.domain.entity
+import linkscrapper.chat.domain.model
+import linkscrapper.chat.repository
 
 final class InMemoryChatRepository(
     data: Ref[IO, Map[Long, model.Chat]]

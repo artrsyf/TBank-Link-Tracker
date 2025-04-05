@@ -1,12 +1,12 @@
-package linkscrapper.Link.domain.dto
+package linkscrapper.link.domain.dto
 
 import java.time.Instant
 
 import sttp.tapir.Schema
 import tethys.{JsonReader, JsonWriter}
 
-import linkscrapper.Link.domain.entity
-import linkscrapper.Link.domain.model
+import linkscrapper.link.domain.entity
+import linkscrapper.link.domain.model
 
 type Tags    = List[String]
 type Filters = List[String]
@@ -57,23 +57,12 @@ def LinkAddRequestToEntity(createRequest: AddLinkRequest, chatId: Long): entity.
     updatedAt = Instant.now(),
   )
 
-def LinkEntityToModel(linkEntity: entity.Link, createdAt: Instant): model.Link =
-  model.Link(
-    id = linkEntity.id,
-    url = linkEntity.url,
-    tags = linkEntity.tags,
-    filters = linkEntity.filters,
-    chatId = linkEntity.chatId,
-    createdAt = createdAt,
-    updatedAt = linkEntity.updatedAt,
-  )
-
-def LinkModelToEntity(linkModel: model.Link): entity.Link =
+def LinkModelToEntity(linkModel: model.Link, userLinkModel: model.UserLink): entity.Link =
   entity.Link(
     id = linkModel.id,
     url = linkModel.url,
-    tags = linkModel.tags,
-    filters = linkModel.filters,
-    chatId = linkModel.chatId,
+    tags = userLinkModel.tags,
+    filters = userLinkModel.filters,
+    chatId = userLinkModel.chatId,
     updatedAt = linkModel.updatedAt,
   )

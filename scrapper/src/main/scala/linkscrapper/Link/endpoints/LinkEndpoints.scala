@@ -1,11 +1,11 @@
-package linkscrapper.Link.endpoints
+package linkscrapper.link.endpoints
 
 import sttp.tapir.*
 import sttp.model.StatusCode
 import sttp.tapir.Endpoint
 import sttp.tapir.json.tethysjson.jsonBody
 
-import linkscrapper.Link.domain.dto
+import linkscrapper.link.domain.dto
 
 object LinkEndpoints:
   val getLinksEndpoint: Endpoint[
