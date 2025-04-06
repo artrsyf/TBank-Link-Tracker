@@ -48,9 +48,15 @@ object Dependencies {
   val telegramiumCore = "io.github.apimorphism" %% "telegramium-core" % telegramiumVersion
   val telegramiumHigh = "io.github.apimorphism" %% "telegramium-high" % telegramiumVersion
 
+
+  // scheduler
   val quartzVersion = "1.0.4"
 
   val quartz = "com.itv" % "quartz4s-core_3" % quartzVersion
+
+  // logging
+  val log4catsSlf = "org.typelevel" %% "log4cats-slf4j"  % "2.7.0"
+  val log4catsCore= "org.typelevel" %% "log4cats-core"   % "2.7.0"
 
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
@@ -73,5 +79,7 @@ object Dependencies {
     telegramiumCore,
     telegramiumHigh,
     quartz,
+    log4catsSlf,
+    log4catsCore,
   )
 }
