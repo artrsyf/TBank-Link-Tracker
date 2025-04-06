@@ -4,6 +4,8 @@ import cats.effect.{ExitCode, IO, IOApp}
 import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
@@ -18,6 +20,8 @@ import linkscrapper.pkg.Scheduler.QuartzScheduler
 import linkscrapper.wiring.{Repositories, Usecases}
 
 object Main extends IOApp:
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+
   override def run(args: List[String]): IO[ExitCode] =
     for {
       appConfig <- AppConfig.load
@@ -44,7 +48,7 @@ object Main extends IOApp:
         IO {
           List(
             ChatHandler.make(usecases.chatUsecase),
-            LinkHandler.make(usecases.chatUsecase, usecases.linkUsecase),
+            LinkHandler.make(usecases.chatUsecase, usecases.linkUsecase, logger),
           ).flatMap(_.endpoints)
         }
 
@@ -66,7 +70,7 @@ object Main extends IOApp:
           .withHttpApp(Router("/" -> routes).orNotFound)
           .build
           .evalTap(server =>
-            IO.println(
+            Logger[IO].info(
               s"Server available at http://localhost:${server.address.getPort}"
             )
           )

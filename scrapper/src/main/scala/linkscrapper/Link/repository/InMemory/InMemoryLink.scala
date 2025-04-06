@@ -6,6 +6,7 @@ import scala.util.Random
 
 import cats.effect.IO
 import cats.effect.Ref
+import org.typelevel.log4cats.Logger
 
 import linkscrapper.link.domain.dto
 import linkscrapper.link.domain.entity
@@ -15,6 +16,7 @@ import linkscrapper.link.repository
 final class InMemoryLinkRepository(
     linkData: Ref[IO, Map[String, model.Link]],
     userLinkData: Ref[IO, Map[(Long, Long), model.UserLink]],
+    logger: Logger[IO],
 ) extends repository.LinkRepository[IO]:
   private def generateLinkId(): IO[Long] =
     IO(Random.between(1L, 999999L))
@@ -50,7 +52,9 @@ final class InMemoryLinkRepository(
       ))
       
       linkEntity = dto.LinkModelToEntity(linkModel, userLinkModel)
-      _  <- IO.println(s"Successfully created UserLink for chatId: ${linkEntity.chatId}, url: ${linkEntity.url}")
+      _  <- logger.info(
+        s"Successfully created UserLink | chatId=${linkEntity.chatId} url=${linkEntity.url}"
+      )
     yield linkEntity
 
   override def update(linkModel: model.Link): IO[Option[model.Link]] =
@@ -62,10 +66,10 @@ final class InMemoryLinkRepository(
           val updatedLinkModel = linkModel.copy(updatedAt = Instant.now())
           for
             _ <- linkData.update(_ + (linkModel.url -> updatedLinkModel))
-            _ <- IO.println(s"Successfully updated link with URL: ${linkModel.url}")
+            _  <- logger.info(s"Successfully updated link | url=${linkModel.url}")
           yield Some(updatedLinkModel)
         case None =>
-          IO.println(s"Link with URL ${linkModel.url} not found")
+          logger.warn(s"Can't update link, link not found | url=${linkModel.url}")
           IO.pure(None)
       }
     yield result
@@ -79,13 +83,14 @@ final class InMemoryLinkRepository(
         case Some(linkModel) =>
           for
             _ <- userLinkData.update(_ - ((chatId, linkModel.id)))
-            _ <- IO.println(s"Successfully deleted link and all associated UserLinks for url: $linkUrl")
             userLinkEntity = userLinks.get((chatId, linkModel.id)) match
               case Some(userLinkModel) => Some(dto.LinkModelToEntity(linkModel, userLinkModel))
               case None => None
+
+            _  <- logger.info(s"Successfully deleted link | url=${linkUrl}")
           yield userLinkEntity
         case None =>
-          IO.println(s"Link not found with url: $linkUrl")
+          logger.info(s"Can't delete user link, link not found | url=${linkUrl}")
           IO.pure(None)
       
     yield result

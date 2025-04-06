@@ -2,7 +2,7 @@ package linkscrapper.link.delivery.http
 
 import cats.effect.IO
 import cats.data.EitherT
-
+import org.typelevel.log4cats.Logger
 import sttp.tapir.server.ServerEndpoint
 
 import linkscrapper.chat.usecase.ChatUsecase
@@ -10,6 +10,7 @@ import linkscrapper.link.domain.dto
 import linkscrapper.link.endpoints.LinkEndpoints
 import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.pkg.Controller.Controller
+
 
 object ChatMiddlewares:
   def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
@@ -22,16 +23,19 @@ object ChatMiddlewares:
 class LinkHandler(
     chatUsecase: ChatUsecase[IO],
     linkUsecase: LinkUsecase[IO],
+    logger: Logger[IO]
 ) extends Controller[IO]:
   private val checkChat = ChatMiddlewares.chatValidation(chatUsecase.check)
 
   private def withChatValidation[A, B](
-      logic: Long => IO[Either[dto.ApiErrorResponse, B]]
+      handlerFunc: Long => IO[Either[dto.ApiErrorResponse, B]]
   ): Long => IO[Either[dto.ApiErrorResponse, B]] =
     chatId =>
       checkChat(chatId).flatMap {
-        case Right(validChatId) => logic(validChatId)
-        case Left(error)        => IO.pure(Left(error))
+        case Right(validChatId) => handlerFunc(validChatId)
+        case Left(error)        => 
+          logger.info(s"Unauthorized, can't find chat | chatId=${chatId}")
+          IO.pure(Left(error))
       }
 
   private val getLinks: ServerEndpoint[Any, IO] =
@@ -79,5 +83,6 @@ object LinkHandler:
   def make(
       chatUsecase: ChatUsecase[IO],
       linkUsecase: LinkUsecase[IO],
+      logger: Logger[IO],
   ): LinkHandler =
-    LinkHandler(chatUsecase, linkUsecase)
+    LinkHandler(chatUsecase, linkUsecase, logger)
