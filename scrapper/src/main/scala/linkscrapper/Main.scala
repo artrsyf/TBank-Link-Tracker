@@ -43,6 +43,7 @@ object Main extends IOApp:
         usecases.linkUsecase,
         clients,
         backend,
+        logger,
       )
       endpoints <-
         IO {
@@ -71,7 +72,7 @@ object Main extends IOApp:
           .build
           .evalTap(server =>
             Logger[IO].info(
-              s"Server available at http://localhost:${server.address.getPort}"
+              s"Server available at http://0.0.0.0:${server.address.getPort}"
             )
           )
           .useForever,

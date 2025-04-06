@@ -10,6 +10,7 @@ import cats.syntax.traverse.*
 import com.itv.scheduler._
 import com.itv.scheduler.extruder.semiauto._
 import org.quartz.{CronExpression, JobKey, TriggerKey}
+import org.typelevel.log4cats.Logger
 
 import sttp.client3._
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
@@ -22,8 +23,8 @@ import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.link.domain.dto
 import linkscrapper.pkg.Client.LinkClient
 
-sealed trait ParentJob
 
+sealed trait ParentJob
 object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
 }
@@ -36,6 +37,7 @@ class QuartzScheduler(
     linkUsecase: LinkUsecase[IO],
     clients: Map[String, LinkClient[IO]],
     backend: SttpBackend[IO, Any],
+    logger: Logger[IO],
 ) {
   private def sendUpdatedLinks(linkUpdates: List[dto.LinkUpdate]): IO[Unit] =
     val request = basicRequest
@@ -44,30 +46,32 @@ class QuartzScheduler(
       .contentType("application/json")
 
     for
-      _ <- IO.delay(println(s"Sending updates: ${linkUpdates.asJson.toString}"))
+      _ <- logger.info(s"Sending updates to bot-service | linkCount=${linkUpdates.length}")
 
       response <- backend.send(request).attempt
       _ <- response match {
         case Right(resp) if resp.code.isSuccess =>
-          IO.delay(println(s"Successfully sent updates: ${resp.body}"))
+          logger.info("Successfully sent updates to bot-service")
         case Right(resp) =>
-          IO.delay(println(s"Failed to send updates. Status: ${resp.code}, Body: ${resp.body}"))
+          logger.warn(
+            s"Unexpected response code from bot-service | linkCount=${linkUpdates.length} " +
+              s"| status=${resp.code} | Body=${resp.body}"
+          )
         case Left(error) =>
-          IO.delay(println(s"Error sending updates: ${error.getMessage}"))
+          logger.error(
+            s"Error sending updates to bot-service | linkCount=${linkUpdates.length} | error=${error.getMessage}"
+          )
       }
     yield ()
 
   private def fetchLinkUpdates: IO[Unit] =
     for {
-      _ <- IO.delay(println("Scheduled link fetch"))
+      _ <- logger.info("Fetching link updates")
 
       links <- linkUsecase.getLinks
-      _     <- IO.delay(println(s"Checking links: $links"))
       updatedLinks <- links.traverse { link =>
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
-            println(s"Choose client ${client.getClass().toString()} for url $link.url")
-
             client.getLastUpdate(link.url).flatMap {
               case Right(updatedTime) =>
                 if (updatedTime.isAfter(link.updatedAt)) then
@@ -77,7 +81,7 @@ class QuartzScheduler(
                     case Right(updatedLinkEntity) =>
                       IO.pure(Some(updatedLinkEntity))
                     case Left(errorResp) =>
-                      IO.delay(println(s"Error updating link: ${errorResp.message}")).map(_ => None)
+                      logger.warn(s"Failed to update link | error=${errorResp.message}").map(_ => None)
                   }
                 else
                   IO.pure(None)
@@ -87,12 +91,9 @@ class QuartzScheduler(
         }.getOrElse(IO.pure(None))
       }.map(_.flatten)
 
-      _     <- IO.delay(println(s"Links to update: $updatedLinks"))
-
       linkUpdates <- updatedLinks.traverse  { updatedLink =>
         for
           userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
-          _     <- IO.delay(println(s"Attaching userlinks: $userLinks"))
           tgChatIds = userLinks.map(_.chatId)
         yield {
           if (tgChatIds.nonEmpty) then
@@ -107,7 +108,7 @@ class QuartzScheduler(
       }.map(_.flatten)
       
       _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <- IO.delay(println(s"Sent updated links to tg bot")).whenA(linkUpdates.nonEmpty)
+      _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
     } yield ()
 
   def runScheduler: IO[Unit] = {

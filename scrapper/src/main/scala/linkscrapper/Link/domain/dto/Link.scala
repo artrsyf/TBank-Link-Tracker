@@ -40,13 +40,6 @@ final case class RemoveLinkRequest(
     link: String,
 ) derives Schema, JsonReader, JsonWriter
 
-def LinkEntityToUpdate(linkEntity: entity.Link): LinkUpdate =
-  LinkUpdate(
-    url = linkEntity.url,
-    description = "Got update!",
-    tgChatIds = List(1, 2, 3),
-  )
-
 def LinkAddRequestToEntity(createRequest: AddLinkRequest, chatId: Long): entity.Link =
   entity.Link(
     id = 1,
