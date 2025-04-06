@@ -8,6 +8,8 @@ import com.comcast.ip4s.{Host, Port}
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
+import org.typelevel.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
 
 import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir._
@@ -28,6 +30,8 @@ import linktracker.link.presenter.TelegramBotPresenter.TelegramBotPresenter
 import linktracker.link.usecase.LinkUsecase
 
 object Main extends IOApp {
+  given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+  
   def telegramBotApi(token: String) =
     s"https://api.telegram.org/bot${token}"
   override def run(args: List[String]): IO[ExitCode] =
@@ -40,7 +44,13 @@ object Main extends IOApp {
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
       dialogRepository = new InMemoryDialogRepository
-      bot              = new TelegramBotPresenter[IO](sttpClient, dialogRepository, appConfig.telegram)
+      bot              = new TelegramBotPresenter[IO](
+        sttpClient, 
+        dialogRepository, 
+        appConfig.telegram,
+        logger,
+      )
+      
       linkUsecase      = LinkUsecase.make(bot)
 
       endpoints <-
@@ -63,13 +73,13 @@ object Main extends IOApp {
 
       server = EmberServerBuilder
         .default[IO]
-        .withHost(Host.fromString("0.0.0.0").get) // docker fix?
+        .withHost(Host.fromString("0.0.0.0").get)
         .withPort(port)
         .withHttpApp(Router("/" -> routes).orNotFound)
         .build
         .evalTap(server =>
-          IO.println(
-            s"Server available at http://localhost:${server.address.getPort}"
+          logger.info(
+            s"Server available at http://0.0.0.0:${server.address.getPort}"
           )
         )
         .useForever

@@ -17,6 +17,8 @@ import telegramium.bots.high.keyboards._
 import tethys._
 import tethys.jackson._
 
+import org.typelevel.log4cats.Logger
+
 import linktracker.config.TelegramConfig
 import linktracker.dialog.domain.model.*
 import linktracker.dialog.repository.DialogRepository
@@ -77,6 +79,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     client: SttpBackend[F, Any],
     dialogRepo: DialogRepository[F],
     telegramConfig: TelegramConfig,
+    logger: Logger[F],
 )(using api: Api[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
   private def basicSecuredRequest(chatId: Long) = basicRequest
     .header("Tg-Chat-Id", chatId.toString)
@@ -127,25 +130,8 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         trackUrlWithMeta(chatId, url)(tags, filters)
 
     case _ =>
-      println("Dialog was handled with unknown state")
+      logger.error(s"Handling unknown dialog state | dialogState=${state}")
       Async[F].pure(())
-  }
-
-  override def onCallbackQuery(query: CallbackQuery): F[Unit] = {
-    val callbackData = query.data.getOrElse("")
-    callbackData match {
-      case CallbackEvents.cancelTagsButtonPressed | CallbackEvents.cancelFiltersButtonPressed =>
-        dialogRepo.get(query.from.id).flatMap {
-          case Some(currentState) =>
-            handleDialogState(currentState, "")
-          case _ =>
-            println("Entered in callback without dialog state")
-            Async[F].pure(())
-        }
-
-      case _ =>
-        Methods.sendMessage(ChatIntId(query.from.id), ResponseMessage.UnknownButtonMessage.message).exec.void
-    }
   }
 
   override def onMessage(msg: Message): F[Unit] = {
@@ -176,16 +162,19 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       case Right(response) =>
         response.code match {
           case StatusCode.Ok =>
+            logger.info(s"Successful signup request to scrapper")
             Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullRegisterMessage.message).exec.void
           case _ =>
+            logger.warn(s"Unexpected signup response status code | code=${response.code}")
             Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedRegisterMessage.message).exec.void
         }
 
       case Left(ex: SttpClientException.ConnectException) =>
-        println(ex)
+        logger.error(s"Can't send signup request to scrapper-service | error=${ex}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
+        logger.error(s"Can't send signup request to scrapper-service | error=${error.getMessage}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
@@ -202,16 +191,19 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
+        logger.info(s"Successful untrack request to scrapper")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkDeletionMessage.message).exec.void
 
       case Right(response) =>
+        logger.warn(s"Unexpected untrack response status code | code=${response.code}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkDeltionMessage.message).exec.void
 
       case Left(ex: SttpClientException.ConnectException) =>
-        println(ex)
+        logger.error(s"Can't send untrack request to scrapper-service | error=${ex}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
+        logger.error(s"Can't send untrack request to scrapper-service | error=${error.getMessage}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
@@ -230,16 +222,19 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
+        logger.info(s"Successful track request to scrapper")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
 
       case Right(response) =>
+        logger.warn(s"Unexpected track response status code | code=${response.code}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkAdditionMessage.message).exec.void
 
       case Left(ex: SttpClientException.ConnectException) =>
-        println(ex)
+        logger.error(s"Can't send track request to scrapper-service | error=${ex}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
 
       case Left(error) =>
+        logger.error(s"Can't send track request to scrapper-service | error=${error.getMessage}")
         Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
     }
   }
@@ -254,6 +249,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
           val links = json.jsonAs[List[dto.LinkResponse]] match
             case Right(linkList) => linkList
             case Left(error) =>
+              logger.warn(s"Can't parse json form scrapper-service response | error=${error.toString()}")
               Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.toString()).message)
                 .exec.void
               List()
@@ -265,6 +261,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
             }.void
 
         case Left(error) =>
+          logger.error(s"Can't send list request to scrapper-service | error=${error.toString()}")
           Methods.sendMessage(ChatIntId(chatId), ResponseMessage.RequestErrorMessage(error).message).exec.void
       }
     }
