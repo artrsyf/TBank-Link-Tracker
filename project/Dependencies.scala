@@ -48,19 +48,31 @@ object Dependencies {
   val telegramiumCore = "io.github.apimorphism" %% "telegramium-core" % telegramiumVersion
   val telegramiumHigh = "io.github.apimorphism" %% "telegramium-high" % telegramiumVersion
 
-
   // scheduler
   val quartzVersion = "1.0.4"
 
   val quartz = "com.itv" % "quartz4s-core_3" % quartzVersion
 
   // logging
-  val log4catsSlf = "org.typelevel" %% "log4cats-slf4j"  % "2.7.0"
-  val log4catsCore = "org.typelevel" %% "log4cats-core"   % "2.7.0"
+  val log4catsVersion = "2.7.0"
+
+  val log4catsSlf = "org.typelevel" %% "log4cats-slf4j"  % log4catsVersion
+  val log4catsCore = "org.typelevel" %% "log4cats-core"   % log4catsVersion
 
   // testing
   val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18" % Test
   val mockito = "org.scalatestplus" %% "mockito-4-11" % "3.2.18.0" % Test
+
+  // RDMBS
+  val doobieVersion = "1.0.0-RC8"
+  val liquibaseVersion = "4.27.0"
+
+  val rdbmsDependencies: List[ModuleID] = List(
+    "org.liquibase"  % "liquibase-core"  % liquibaseVersion,
+    "org.tpolecat"  %% "doobie-core"     % doobieVersion,
+    "org.tpolecat"  %% "doobie-postgres" % doobieVersion,
+    "org.tpolecat"  %% "doobie-hikari"   % doobieVersion
+  )
 
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
@@ -87,5 +99,5 @@ object Dependencies {
     log4catsCore,
     scalaTest,
     mockito,
-  )
+  ) ++ rdbmsDependencies
 }
