@@ -23,6 +23,7 @@ import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.link.domain.dto
 import linkscrapper.pkg.Client.LinkClient
 
+
 sealed trait ParentJob
 object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
@@ -71,44 +72,48 @@ class QuartzScheduler(
       updatedLinks <- links.traverse { link =>
         clients.collectFirst {
           case (prefix, client) if link.url.startsWith(prefix) =>
-            client.getLastUpdate(link.url).flatMap {
-              case Right(updatedTime) =>
-                if (updatedTime.isAfter(link.updatedAt)) then
-                  val updatedLink = link.copy(updatedAt = updatedTime)
+            client.getUpdates(link.url, link.updatedAt).flatMap {
+              case Right(linkUpdatesRaw) =>
+                val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
 
+                if (linkUpdates.isEmpty) IO.pure(None)
+                else
+                  val updatedLink = link.copy(updatedAt = Instant.now())
                   linkUsecase.updateLink(updatedLink).flatMap {
                     case Right(updatedLinkEntity) =>
-                      IO.pure(Some(updatedLinkEntity))
+                      IO.pure(Some((updatedLinkEntity, linkUpdates)))
                     case Left(errorResp) =>
                       logger.warn(s"Failed to update link | error=${errorResp.message}").map(_ => None)
                   }
-                else
-                  IO.pure(None)
+
               case Left(error) =>
                 IO.pure(None)
             }
         }.getOrElse(IO.pure(None))
-      }.map(_.flatten)
+      }
+      groupedLinks = updatedLinks.flatten.groupBy(_.url)
+      linkUpdates = groupedLinks.flatMap { case (url, linkList) =>
+        val tgChatIds = linkList.map(link => link.chatId).distinct
 
-      linkUpdates <- updatedLinks.traverse { updatedLink =>
-        for
+      linkUpdates <- updatedLinks.traverse { case (updatedLink, updates) =>
+        for {
           userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
           tgChatIds = userLinks.map(_.chatId)
-        yield {
+
+          description = updates.map(_.description).mkString("\n\n---\n\n")
+        } yield {
           if (tgChatIds.nonEmpty) then
             Some(dto.LinkUpdate(
               url = updatedLink.url,
-              description = "Got update!",
+              description = description,
               tgChatIds = tgChatIds,
             ))
-          else
-            None
+          else None
         }
       }.map(_.flatten)
-
+      
       _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <-
-        logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
+      _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
     } yield ()
 
   def runScheduler: IO[Unit] = {
@@ -153,7 +158,7 @@ class QuartzScheduler(
       case CronJob =>
         fetchLinkUpdates
       case CheckJob =>
-        IO.println(s"Single job check")
+        logger.info(s"Single job check")
     }.foreverM
   }
 }

@@ -1,5 +1,7 @@
 package linkscrapper.link.repository
 
+import fs2.Stream
+
 import linkscrapper.link.domain.model
 import linkscrapper.link.domain.entity
 
@@ -9,4 +11,5 @@ trait LinkRepository[F[_]]:
   def deleteUserLink(linkUrl: String, chatId: Long): F[Option[entity.Link]]
   def getUserLinksByChatId(chatId: Long): F[entity.Links]
   def getLinks: F[model.Links]
+  def streamAllLinks: Stream[F, model.Link]
   def getUserLinksByLinkUrl(linkUrl: String): F[entity.Links]

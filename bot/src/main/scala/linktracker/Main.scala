@@ -1,3 +1,5 @@
+package bot
+
 import cats.effect._
 import cats.effect.kernel.Async
 import cats.Parallel
@@ -48,7 +50,7 @@ object Main extends IOApp {
         sttpClient,
         dialogRepository,
         appConfig.telegram,
-        logger,
+        // logger,
       )
 
       linkUsecase = LinkUsecase.make(bot)

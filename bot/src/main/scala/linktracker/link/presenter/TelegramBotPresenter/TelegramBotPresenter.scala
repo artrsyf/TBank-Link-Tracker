@@ -79,8 +79,8 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     client: SttpBackend[F, Any],
     dialogRepo: DialogRepository[F],
     telegramConfig: TelegramConfig,
-    logger: Logger[F],
-)(using api: Api[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
+    // logger: Logger[F],
+)(using api: Api[F], logger: Logger[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
   private def basicSecuredRequest(chatId: Long) = basicRequest
     .header("Tg-Chat-Id", chatId.toString)
 
@@ -116,6 +116,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
 
   private def handleDialogState(state: DialogState, text: String): F[Unit] = state match {
     case AwaitingTags(chatId, url) =>
+      logger.debug(s"Handling dialog state | dialogState=${state}")
       val tags = text.split(" ").toList.filter(_.nonEmpty)
       dialogRepo.put(chatId, AwaitingFilters(chatId, url, tags)) *>
         Methods.sendMessage(
@@ -125,6 +126,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
         ).exec.void
 
     case AwaitingFilters(chatId, url, tags) =>
+      logger.debug(s"Handling dialog state | dialogState=${state}")
       val filters = text.split(" ").toList.filter(_.nonEmpty)
       dialogRepo.delete(chatId) *>
         trackUrlWithMeta(chatId, url)(tags, filters)
@@ -144,10 +146,50 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     }
   }
 
+  override def onCallbackQuery(callbackQuery: CallbackQuery): F[Unit] = {
+    val chatId = callbackQuery.from.id
+    val answerAck = Methods.answerCallbackQuery(callbackQuery.id).exec.void
+
+    callbackQuery.data match {
+      case Some(CallbackEvents.cancelTagsButtonPressed) =>
+        println(s"logger class: ${logger.getClass}")
+        logger.info(s"User skipped tags chatId=$chatId")
+        dialogRepo.get(chatId).flatMap {
+          case Some(state @ AwaitingTags(_, _)) =>
+            handleDialogState(state, "") *> answerAck
+          case _ =>
+            logger.warn(s"User $chatId tried to skip tags, but state is not AwaitingTags") *> answerAck
+        }
+
+      case Some(CallbackEvents.cancelFiltersButtonPressed) =>
+        logger.info(s"User skipped filters chatId=$chatId")
+        dialogRepo.get(chatId).flatMap {
+          case Some(state @ AwaitingFilters(_, _, _)) =>
+            handleDialogState(state, "") *> answerAck
+          case _ =>
+            logger.warn(s"User $chatId tried to skip filters, but state is not AwaitingFilters") *> answerAck
+        }
+
+      case Some(other) =>
+        logger.warn(s"Unhandled callback data: $other") *> answerAck
+
+      case None =>
+        logger.warn("Callback query with no data received") *> answerAck
+    }
+  }
+
+
   override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
+    val linkUpdateMessage = ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message
+    val safeMessage = 
+      if (linkUpdateMessage.length > 4096) 
+        linkUpdateMessage.take(4093) + "..."
+      else 
+        linkUpdateMessage
+    logger.info(s"Sending link update message | message=${linkUpdateMessage}")
     Methods.sendMessage(
       ChatIntId(chatId),
-      ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message,
+      safeMessage,
     ).exec.void
   }
 
@@ -155,6 +197,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     dialogRepo.put(chatId, state)
 
   def signup(chatId: Long): F[Unit] = {
+    logger.error("check check")
     val request = basicRequest
       .post(uri"${telegramConfig.scrapperServiceUrl}/tg-chat/${chatId}")
 
