@@ -14,7 +14,8 @@ services:
     env_file:
       - ../bot/src/main/resources/.env
     depends_on:
-      - scrapper
+      scrapper:
+        condition: service_started
     networks:
       - link-scrapper-network
 
@@ -25,5 +26,59 @@ services:
       - "8080:8080"
     expose:
       - 8080
+    env_file:
+      - ../scrapper/src/main/resources/.env
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
     networks:
       - link-scrapper-network
+
+  migrator:
+    image: migrator-api:0.1.0-SNAPSHOT
+    container_name: migrator-service
+    env_file:
+      - ../migrator/src/main/resources/.env
+    depends_on:
+      scrapper_postgres:
+        condition: service_healthy
+    networks:
+      - link-scrapper-network
+  
+  scrapper_postgres:
+    container_name: scrapper_postgres
+    image: postgres:17-alpine
+    volumes:
+      - ../scripts/sql/:/docker-entrypoint-initdb.d/  
+      - scrapper_postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ../scrapper/src/main/resources/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d scrapper_postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432
+    networks:
+      - link-scrapper-network
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:9
+    env_file:
+      - ../scrapper/src/main/resources/.env
+    ports:
+      - "5050:80"
+    depends_on:
+      - scrapper_postgres
+    networks:
+      - link-scrapper-network
+
+volumes:
+  scrapper_postgres_data:
+    driver: "local"
