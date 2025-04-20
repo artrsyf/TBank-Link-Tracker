@@ -2,12 +2,14 @@ package linkscrapper.link.usecase
 
 import cats.effect.IO
 import org.typelevel.log4cats.Logger
+import fs2.Stream
 
 import linkscrapper.link.domain.dto
 import linkscrapper.link.domain.model
 import linkscrapper.link.domain.entity
 import linkscrapper.link.domain.entity.LinkError
 import linkscrapper.link.repository.LinkRepository
+import linkscrapper.link.domain.model.Link
 
 trait LinkUsecase[F[_]]:
   def addUserLink(createRequest: dto.AddLinkRequest, chatId: Long): F[Either[LinkError, entity.Link]]
@@ -15,6 +17,7 @@ trait LinkUsecase[F[_]]:
   def removeUserLink(linkUrl: String, chatId: Long): F[Either[LinkError, entity.Link]]
   def getUserLinksByChatId(chatId: Long): F[entity.Links]
   def getLinks: F[model.Links]
+  def streamAllLinks: Stream[F, model.Link]
   def getUserLinksByLinkUrl(linkUrl: String): F[entity.Links]
 
 object LinkUsecase:
@@ -65,7 +68,10 @@ object LinkUsecase:
         modelLinks <- linkRepo.getLinks
       yield modelLinks
 
-    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
+    override def streamAllLinks: Stream[IO, Link] = 
+      linkRepo.streamAllLinks
+    
+    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] = 
       for
         entityLinks <- linkRepo.getUserLinksByLinkUrl(linkUrl)
       yield entityLinks

@@ -17,6 +17,7 @@ import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.json.tethysjson
 import tethys._
 import tethys.jackson._
+import fs2.Stream
 
 import linkscrapper.config.SchedulerConfig
 import linkscrapper.link.usecase.LinkUsecase
@@ -64,57 +65,101 @@ class QuartzScheduler(
       }
     yield ()
 
-  private def fetchLinkUpdates: IO[Unit] =
-    for {
-      _ <- logger.info("Fetching link updates")
+  private def fetchLinkUpdates: IO[Unit] = {
+    linkUsecase.streamAllLinks.evalMap { link =>
+      clients.collectFirst {
+        case (prefix, client) if link.url.startsWith(prefix) =>
+          client.getUpdates(link.url, link.updatedAt).flatMap {
+            case Right(linkUpdatesRaw) =>
+              val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
 
-      links <- linkUsecase.getLinks
-      updatedLinks <- links.traverse { link =>
-        clients.collectFirst {
-          case (prefix, client) if link.url.startsWith(prefix) =>
-            client.getUpdates(link.url, link.updatedAt).flatMap {
-              case Right(linkUpdatesRaw) =>
-                val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
+              if (linkUpdates.isEmpty) IO.pure(None)
+              else {
+                val updatedLink = link.copy(updatedAt = Instant.now())
+                linkUsecase.updateLink(updatedLink).flatMap {
+                  case Right(updatedLinkEntity) =>
+                    IO.pure(Some((updatedLinkEntity, linkUpdates)))
+                  case Left(errorResp) =>
+                    logger.warn(s"Failed to update link | error=${errorResp.message}").as(None)
+                }
+              }
 
-                if (linkUpdates.isEmpty) IO.pure(None)
-                else
-                  val updatedLink = link.copy(updatedAt = Instant.now())
-                  linkUsecase.updateLink(updatedLink).flatMap {
-                    case Right(updatedLinkEntity) =>
-                      IO.pure(Some((updatedLinkEntity, linkUpdates)))
-                    case Left(errorResp) =>
-                      logger.warn(s"Failed to update link | error=${errorResp.message}").map(_ => None)
-                  }
-
-              case Left(error) =>
-                IO.pure(None)
-            }
-        }.getOrElse(IO.pure(None))
+            case Left(_) =>
+              IO.pure(None)
+          }
+      }.getOrElse(IO.pure(None))
+    }
+    .unNone
+    .evalMap { case (updatedLink, updates) =>
+      for {
+        userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
+        tgChatIds = userLinks.map(_.chatId)
+        description = updates.map(_.description).mkString("\n\n---\n\n")
+      } yield {
+        if (tgChatIds.nonEmpty)
+          Some(dto.LinkUpdate(updatedLink.url, description, tgChatIds))
+        else None
       }
-      groupedLinks = updatedLinks.flatten.groupBy(_.url)
-      linkUpdates = groupedLinks.flatMap { case (url, linkList) =>
-        val tgChatIds = linkList.map(link => link.chatId).distinct
+    }
+    .unNone
+    .compile
+    .toList
+    .flatMap { linkUpdates =>
+      if (linkUpdates.nonEmpty)
+        sendUpdatedLinks(linkUpdates) *> logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}")
+      else
+        IO.unit
+    }
+  }
 
-      linkUpdates <- updatedLinks.traverse { case (updatedLink, updates) =>
-        for {
-          userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
-          tgChatIds = userLinks.map(_.chatId)
+  // private def fetchLinkUpdates: IO[Unit] =
+  //   for {
+  //     _ <- logger.info("Fetching link updates")
 
-          description = updates.map(_.description).mkString("\n\n---\n\n")
-        } yield {
-          if (tgChatIds.nonEmpty) then
-            Some(dto.LinkUpdate(
-              url = updatedLink.url,
-              description = description,
-              tgChatIds = tgChatIds,
-            ))
-          else None
-        }
-      }.map(_.flatten)
-      
-      _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
-    } yield ()
+  //     links <- linkUsecase.getLinks
+  //     updatedLinks <- links.traverse { link =>
+  //       clients.collectFirst {
+  //         case (prefix, client) if link.url.startsWith(prefix) =>
+  //           client.getUpdates(link.url, link.updatedAt).flatMap {
+  //             case Right(linkUpdatesRaw) =>
+  //               val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
+
+  //               if (linkUpdates.isEmpty) IO.pure(None)
+  //               else {
+  //                 val updatedLink = link.copy(updatedAt = Instant.now())
+  //                 linkUsecase.updateLink(updatedLink).flatMap {
+  //                   case Right(updatedLinkEntity) =>
+  //                     IO.pure(Some((updatedLinkEntity, linkUpdates)))
+  //                   case Left(errorResp) =>
+  //                     logger.warn(s"Failed to update link | error=${errorResp.message}").as(None)
+  //                 }
+  //               }
+
+  //             case Left(_) => IO.pure(None)
+  //           }
+  //       }.getOrElse(IO.pure(None))
+  //     }
+
+  //     linkUpdates <- updatedLinks.flatten.traverse { case (updatedLink, updates) =>
+  //       for {
+  //         userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
+  //         tgChatIds = userLinks.map(_.chatId)
+  //         description = updates.map(_.description).mkString("\n\n---\n\n")
+  //       } yield {
+  //         if (tgChatIds.nonEmpty)
+  //           Some(dto.LinkUpdate(
+  //             url = updatedLink.url,
+  //             description = description,
+  //             tgChatIds = tgChatIds
+  //           ))
+  //         else None
+  //       }
+  //     }.map(_.flatten)
+
+  //     _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
+  //     _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}")
+  //       .whenA(linkUpdates.nonEmpty)
+  //   } yield ()
 
   def runScheduler: IO[Unit] = {
     val quartzProperties = new java.util.Properties()
