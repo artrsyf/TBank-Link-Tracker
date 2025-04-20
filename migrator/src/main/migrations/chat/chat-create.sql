@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS Link (
+    id BIGINT PRIMARY KEY,
+    url VARCHAR(255) NOT NULL,
+    updatedAt TIMESTAMP NOT NULL,
+    CONSTRAINT unique_url UNIQUE (url) 
+);
