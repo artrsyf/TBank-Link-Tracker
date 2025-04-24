@@ -8,6 +8,7 @@ import pureconfig.configurable.genericMapReader
 final case class AppConfig(
     scheduler: SchedulerConfig,
     server: ServerConfig,
+    db: DbConfig,
 ) derives ConfigReader
 
 object AppConfig:
