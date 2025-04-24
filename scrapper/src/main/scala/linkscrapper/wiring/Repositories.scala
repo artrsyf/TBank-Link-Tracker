@@ -1,6 +1,7 @@
 package linkscrapper.wiring
 
-import cats.effect.{IO, Ref}
+import cats.effect.{IO, Ref, Resource}
+import doobie.hikari.HikariTransactor
 import org.typelevel.log4cats.Logger
 
 import linkscrapper.chat.domain.model.Chat
@@ -9,6 +10,8 @@ import linkscrapper.chat.repository.ChatRepository
 import linkscrapper.link.repository.LinkRepository
 import linkscrapper.chat.repository.InMemory.InMemoryChatRepository
 import linkscrapper.link.repository.InMemory.InMemoryLinkRepository
+import linkscrapper.chat.repository.Postgres.PostgresChatRepository
+import linkscrapper.link.repository.Postgres.PostgresLinkRepository
 import linkscrapper.link.domain.model.UserLink
 
 final case class Repositories(
@@ -17,7 +20,7 @@ final case class Repositories(
 )
 
 object Repositories:
-  def make(using logger: Logger[IO]): IO[Repositories] =
+  def makeInMemory(using logger: Logger[IO]): IO[Repositories] =
     for
       chatData     <- Ref.of[IO, Map[Long, Chat]](Map.empty)
       linkData     <- Ref.of[IO, Map[String, Link]](Map.empty)
@@ -29,3 +32,22 @@ object Repositories:
       chatRepo,
       linkRepo,
     )
+
+  def makePostgres(hikariTransactor: HikariTransactor[IO])(using logger: Logger[IO]): IO[Repositories] = 
+    IO.delay {
+      val chatRepo = PostgresChatRepository(hikariTransactor, logger)
+      val linkRepo = PostgresLinkRepository(hikariTransactor, logger)
+      Repositories(chatRepo, linkRepo)
+    }
+
+  // TODO: Update config & remove exceptions
+  def make(dbType: String, hikariTransactor: Option[HikariTransactor[IO]])(using logger: Logger[IO]): IO[Repositories] =
+    dbType match {
+      case "postgres" =>
+        hikariTransactor  match {
+          case Some(xa) => makePostgres(xa)(using logger)
+          case None => IO.raiseError(new IllegalArgumentException("HikariTransactor is required for Postgres"))
+        }
+      case "inmemory" => makeInMemory
+      case _ => IO.raiseError(new IllegalArgumentException(s"Unsupported dbType: $dbType"))
+    }

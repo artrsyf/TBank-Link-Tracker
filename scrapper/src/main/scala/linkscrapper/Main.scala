@@ -1,7 +1,9 @@
 package linkscrapper
 
 import cats.effect.{ExitCode, IO, IOApp}
+import doobie.hikari.HikariTransactor
 import com.comcast.ip4s.{Host, Port}
+import com.zaxxer.hikari.HikariConfig
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Router
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -22,11 +24,42 @@ import linkscrapper.wiring.{Repositories, Usecases}
 object Main extends IOApp:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
+  private def getPortSafe(v: Int): IO[Port] =
+    IO.delay(
+      Port.fromInt(v).toRight(IllegalArgumentException("Invalid port value"))
+    ).rethrow
+
   override def run(args: List[String]): IO[ExitCode] =
     for {
       appConfig <- AppConfig.load
 
-      backend             <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
+      hikariConfig = {
+        val config = new HikariConfig()
+        config.setDriverClassName(appConfig.db.driver)
+        config.setJdbcUrl(appConfig.db.url)
+        config.setUsername(appConfig.db.user)
+        config.setPassword(appConfig.db.password)
+        config
+      }
+
+      hikariTransactorResource = HikariTransactor.fromHikariConfig[IO](hikariConfig)
+
+      exitCode <- {
+        if appConfig.db.inUse == "postgres" then
+          hikariTransactorResource.use { transactor =>
+            runApp(Some(transactor), appConfig)
+          }
+        else
+          runApp(None, appConfig) // in-memory
+      }
+    } yield exitCode
+
+  def runApp(
+    hikariTransactor: Option[HikariTransactor[IO]],
+    appConfig: AppConfig
+  ): IO[ExitCode] =
+    for {
+      backend <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
       githubClient        <- IO(GitHubClient.make(backend))
       stackoverflowClient <- IO(StackOverflowClient.make(backend))
 
@@ -35,7 +68,7 @@ object Main extends IOApp:
         "https://stackoverflow.com/" -> stackoverflowClient,
       )
 
-      repositories <- Repositories.make
+      repositories <- Repositories.make(appConfig.db.inUse, hikariTransactor)
       usecases = Usecases.make(repositories, clients.keys.toList)
 
       scheduler = QuartzScheduler(
@@ -45,13 +78,13 @@ object Main extends IOApp:
         backend,
         logger,
       )
-      endpoints <-
-        IO {
-          List(
-            ChatHandler.make(usecases.chatUsecase),
-            LinkHandler.make(usecases.chatUsecase, usecases.linkUsecase, logger),
-          ).flatMap(_.endpoints)
-        }
+
+      endpoints <- IO {
+        List(
+          ChatHandler.make(usecases.chatUsecase),
+          LinkHandler.make(usecases.chatUsecase, usecases.linkUsecase, logger),
+        ).flatMap(_.endpoints)
+      }
 
       swaggerEndpoint = SwaggerInterpreter().fromServerEndpoints[IO](
         endpoints,
@@ -63,10 +96,11 @@ object Main extends IOApp:
         .toRoutes(swaggerEndpoint ++ endpoints)
 
       port <- getPortSafe(appConfig.server.port)
+
       _ <- IO.race(
         EmberServerBuilder
           .default[IO]
-          .withHost(Host.fromString("0.0.0.0").get) // docker fix?
+          .withHost(Host.fromString("0.0.0.0").get)
           .withPort(port)
           .withHttpApp(Router("/" -> routes).orNotFound)
           .build
@@ -79,8 +113,3 @@ object Main extends IOApp:
         scheduler.runScheduler
       )
     } yield ExitCode.Success
-
-  private def getPortSafe(v: Int): IO[Port] =
-    IO.delay(
-      Port.fromInt(v).toRight(IllegalArgumentException("Invalid port value"))
-    ).rethrow
