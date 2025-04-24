@@ -54,7 +54,7 @@ services:
     env_file:
       - ../scrapper/src/main/resources/.env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d scrapper_postgres"]
+      test: ["CMD-SHELL", "pg_isready -U artrsyf -d scrapper_postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
