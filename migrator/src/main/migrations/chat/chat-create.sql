@@ -1,6 +1,4 @@
-CREATE TABLE IF NOT EXISTS Link (
-    id BIGINT PRIMARY KEY,
-    url VARCHAR(255) NOT NULL,
-    updatedAt TIMESTAMP NOT NULL,
-    CONSTRAINT unique_url UNIQUE (url) 
+CREATE TABLE IF NOT EXISTS chats (
+    chat_id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL
 );
