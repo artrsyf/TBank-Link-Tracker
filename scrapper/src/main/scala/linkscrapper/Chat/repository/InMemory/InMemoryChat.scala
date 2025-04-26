@@ -26,9 +26,10 @@ final class InMemoryChatRepository(
     yield chatModel
 
   override def delete(chatId: Long): IO[Unit] =
-    data.update(_.removed(chatId))
-
-    logger.info(s"Successfully deleted chat | chatId=${chatId}")
+    for
+      _ <- data.update(_.removed(chatId))
+      _ <- logger.info(s"Successfully deleted chat | chatId=$chatId")
+    yield ()
 
   override def getById(chatId: Long): IO[Option[model.Chat]] =
     data.get.map(_.get(chatId))
