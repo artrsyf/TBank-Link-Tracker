@@ -12,8 +12,8 @@ import linkscrapper.chat.domain.model
 import linkscrapper.chat.repository
 
 final class InMemoryChatRepository(
-  data: Ref[IO, Map[Long, model.Chat]],
-  logger: Logger[IO],
+    data: Ref[IO, Map[Long, model.Chat]],
+    logger: Logger[IO],
 ) extends repository.ChatRepository[IO]:
   override def create(chatEntity: entity.Chat): IO[model.Chat] =
     for

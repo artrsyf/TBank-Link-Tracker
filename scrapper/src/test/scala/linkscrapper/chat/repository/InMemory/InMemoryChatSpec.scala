@@ -15,8 +15,8 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 class InMemoryChatRepositorySpec extends AnyFunSuite with Matchers {
 
-  private val testChatId = 123L
-  private val testEntity = Chat(testChatId)
+  private val testChatId  = 123L
+  private val testEntity  = Chat(testChatId)
   private val testInstant = Instant.now()
 
   private def createLogger: IO[Logger[IO]] = Slf4jLogger.create[IO]
@@ -26,8 +26,8 @@ class InMemoryChatRepositorySpec extends AnyFunSuite with Matchers {
 
   test("successfully create chat") {
     val result = (for {
-      ref <- Ref.of[IO, Map[Long, ModelChat]](Map.empty)
-      repo <- createInstance(ref)
+      ref     <- Ref.of[IO, Map[Long, ModelChat]](Map.empty)
+      repo    <- createInstance(ref)
       created <- repo.create(testEntity)
       storage <- ref.get
     } yield (created, storage)).unsafeRunSync()
@@ -41,13 +41,13 @@ class InMemoryChatRepositorySpec extends AnyFunSuite with Matchers {
   }
 
   test("successfully delete chat") {
-    val testModel = ChatEntityToModel(testEntity, testInstant)
+    val testModel   = ChatEntityToModel(testEntity, testInstant)
     val initialData = Map(testChatId -> testModel)
 
     val result = (for {
-      ref <- Ref.of[IO, Map[Long, ModelChat]](initialData)
-      repo <- createInstance(ref)
-      _ <- repo.delete(testChatId)
+      ref     <- Ref.of[IO, Map[Long, ModelChat]](initialData)
+      repo    <- createInstance(ref)
+      _       <- repo.delete(testChatId)
       storage <- ref.get
     } yield storage).unsafeRunSync()
 
@@ -55,12 +55,12 @@ class InMemoryChatRepositorySpec extends AnyFunSuite with Matchers {
   }
 
   test("return existing chat") {
-    val testModel = ChatEntityToModel(testEntity, testInstant)
+    val testModel   = ChatEntityToModel(testEntity, testInstant)
     val initialData = Map(testChatId -> testModel)
 
     val result = (for {
-      ref <- Ref.of[IO, Map[Long, ModelChat]](initialData)
-      repo <- createInstance(ref)
+      ref   <- Ref.of[IO, Map[Long, ModelChat]](initialData)
+      repo  <- createInstance(ref)
       found <- repo.getById(testChatId)
     } yield found).unsafeRunSync()
 
@@ -69,8 +69,8 @@ class InMemoryChatRepositorySpec extends AnyFunSuite with Matchers {
 
   test("return None for non-existent chat") {
     val result = (for {
-      ref <- Ref.of[IO, Map[Long, ModelChat]](Map.empty)
-      repo <- createInstance(ref)
+      ref   <- Ref.of[IO, Map[Long, ModelChat]](Map.empty)
+      repo  <- createInstance(ref)
       found <- repo.getById(999L)
     } yield found).unsafeRunSync()
 

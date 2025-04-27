@@ -22,7 +22,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.create(testChat)).thenReturn(IO.unit)
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.create(testChat).unsafeRunSync()
+    val result  = usecase.create(testChat).unsafeRunSync()
 
     result shouldBe Right(testChat)
     verify(mockRepo).create(testChat)
@@ -33,7 +33,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.getById(testChatId)).thenReturn(IO.pure(Some(testChat)))
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.create(testChat).unsafeRunSync()
+    val result  = usecase.create(testChat).unsafeRunSync()
 
     result shouldBe Left(ChatError.ErrAlreadyRegistered)
     verify(mockRepo, never()).create(testChat)
@@ -44,7 +44,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.delete(testChatId)).thenReturn(IO.unit)
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.delete(testChatId).unsafeRunSync()
+    val result  = usecase.delete(testChatId).unsafeRunSync()
 
     result shouldBe Right(())
     verify(mockRepo).delete(testChatId)
@@ -55,7 +55,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.delete(testChatId)).thenReturn(IO.raiseError(new Exception("fail")))
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.delete(testChatId).unsafeRunSync()
+    val result  = usecase.delete(testChatId).unsafeRunSync()
 
     result shouldBe Left(ChatError.ErrDeletionInvalidChat)
   }
@@ -65,7 +65,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.getById(testChatId)).thenReturn(IO.pure(Some(testChat)))
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.check(testChatId).unsafeRunSync()
+    val result  = usecase.check(testChatId).unsafeRunSync()
 
     result shouldBe true
   }
@@ -75,7 +75,7 @@ class ChatUsecaseSpec extends AnyFunSuite with Matchers with MockitoSugar {
     when(mockRepo.getById(testChatId)).thenReturn(IO.pure(None))
 
     val usecase = ChatUsecase.make(mockRepo)
-    val result = usecase.check(testChatId).unsafeRunSync()
+    val result  = usecase.check(testChatId).unsafeRunSync()
 
     result shouldBe false
   }

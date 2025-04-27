@@ -11,7 +11,6 @@ import linkscrapper.link.endpoints.LinkEndpoints
 import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.pkg.Controller.Controller
 
-
 object ChatMiddlewares:
   def chatValidation(checkChat: Long => IO[Boolean]): Long => IO[Either[dto.ApiErrorResponse, Long]] =
     chatId =>
@@ -33,7 +32,7 @@ class LinkHandler(
     chatId =>
       checkChat(chatId).flatMap {
         case Right(validChatId) => handlerFunc(validChatId)
-        case Left(error)        => 
+        case Left(error) =>
           logger.info(s"Unauthorized, can't find chat | chatId=${chatId}")
           IO.pure(Left(error))
       }

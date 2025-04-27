@@ -9,7 +9,7 @@ import cats.Parallel
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.mockito.Mockito._
-import org.mockito.ArgumentMatchers.{any, eq => eqTo, argThat}
+import org.mockito.ArgumentMatchers.{any, argThat, eq => eqTo}
 import org.scalatestplus.mockito.MockitoSugar
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import sttp.client3._
@@ -23,7 +23,6 @@ import io.circe.generic.auto._
 import tethys.*
 import tethys.jackson.*
 
-
 import linktracker.config.TelegramConfig
 import linktracker.dialog.repository.DialogRepository
 import linktracker.link.domain.dto.{AddLinkRequest, LinkResponse}
@@ -34,13 +33,13 @@ import linktracker.link.domain.dto.*
 class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSugar {
   given IORuntime = cats.effect.unsafe.IORuntime.global
 
-  private val testChatId = 123456789L
-  private val testUrl = "https://example.com"
-  private val mockApi = mock[Api[IO]]
+  private val testChatId     = 123456789L
+  private val testUrl        = "https://example.com"
+  private val mockApi        = mock[Api[IO]]
   private val mockDialogRepo = mock[DialogRepository[IO]]
-  private val mockBackend = mock[SttpBackend[IO, Any]]
-  private val config = TelegramConfig("fake", "http://localhost:8080")
-  private val logger = Slf4jLogger.getLogger[IO]
+  private val mockBackend    = mock[SttpBackend[IO, Any]]
+  private val config         = TelegramConfig("fake", "http://localhost:8080")
+  private val logger         = Slf4jLogger.getLogger[IO]
 
   private def createPresenter() = new TelegramBotPresenter[IO](
     mockBackend,
@@ -98,7 +97,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
     verify(mockApi).execute(
       Methods.sendMessage(
         ChatIntId(testChatId),
-          ResponseMessage.SuccessfullLinkDeletionMessage.message,
+        ResponseMessage.SuccessfullLinkDeletionMessage.message,
       )
     )
   }
@@ -136,7 +135,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
     verify(mockApi).execute(
       Methods.sendMessage(
         ChatIntId(testChatId),
-          ResponseMessage.LinkRepresentationMessage(linkList.head).message,
+        ResponseMessage.LinkRepresentationMessage(linkList.head).message,
       )
     )
   }
@@ -183,7 +182,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
       text = Some("/list")
     )
 
-    val invalidJson = """{"invalid": "data"}"""
+    val invalidJson  = """{"invalid": "data"}"""
     val parseJsonRes = invalidJson.jsonAs[List[LinkResponse]]
 
     val successfulResponse = Response(
@@ -202,7 +201,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
     presenter.onMessage(msg).unsafeRunSync()
 
     parseJsonRes match
-      case Left(error) => 
+      case Left(error) =>
         verify(mockApi).execute(
           Methods.sendMessage(
             ChatIntId(testChatId),
@@ -221,7 +220,8 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
       text = Some("/help")
     )
 
-    val helpText = "/untrack - Удалить URL из трекинга. Использование: /untrack <URL>\n/track - Добавить URL в трекинг. Использование: /track <URL>\n/help - Показать список доступных команд\n/start - Начать работу с ботом\n/list - Показать список отслеживаемых ссылок"
+    val helpText =
+      "/untrack - Удалить URL из трекинга. Использование: /untrack <URL>\n/track - Добавить URL в трекинг. Использование: /track <URL>\n/help - Показать список доступных команд\n/start - Начать работу с ботом\n/list - Показать список отслеживаемых ссылок"
 
     when(mockDialogRepo.get(testChatId)).thenReturn(IO.pure(None))
     when(mockApi.execute(any())).thenReturn(IO.unit)
@@ -248,7 +248,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
     )
 
     when(mockDialogRepo.get(testChatId)).thenReturn(IO.pure(None))
-    
+
     when(mockApi.execute(any())).thenReturn(IO.unit)
 
     presenter.onMessage(msg).unsafeRunSync()

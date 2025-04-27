@@ -19,8 +19,8 @@ final case class Repositories(
 object Repositories:
   def make(using logger: Logger[IO]): IO[Repositories] =
     for
-      chatData <- Ref.of[IO, Map[Long, Chat]](Map.empty)
-      linkData <- Ref.of[IO, Map[String, Link]](Map.empty)
+      chatData     <- Ref.of[IO, Map[Long, Chat]](Map.empty)
+      linkData     <- Ref.of[IO, Map[String, Link]](Map.empty)
       userLinkData <- Ref.of[IO, Map[(Long, Long), UserLink]](Map.empty)
 
       chatRepo = InMemoryChatRepository(chatData, logger)

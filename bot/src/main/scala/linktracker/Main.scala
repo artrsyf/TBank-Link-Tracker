@@ -31,7 +31,7 @@ import linktracker.link.usecase.LinkUsecase
 
 object Main extends IOApp {
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  
+
   def telegramBotApi(token: String) =
     s"https://api.telegram.org/bot${token}"
   override def run(args: List[String]): IO[ExitCode] =
@@ -44,14 +44,14 @@ object Main extends IOApp {
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
       dialogRepository = new InMemoryDialogRepository
-      bot              = new TelegramBotPresenter[IO](
-        sttpClient, 
-        dialogRepository, 
+      bot = new TelegramBotPresenter[IO](
+        sttpClient,
+        dialogRepository,
         appConfig.telegram,
         logger,
       )
-      
-      linkUsecase      = LinkUsecase.make(bot)
+
+      linkUsecase = LinkUsecase.make(bot)
 
       endpoints <-
         IO {

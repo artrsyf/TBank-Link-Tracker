@@ -23,7 +23,6 @@ import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.link.domain.dto
 import linkscrapper.pkg.Client.LinkClient
 
-
 sealed trait ParentJob
 object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
@@ -91,7 +90,7 @@ class QuartzScheduler(
         }.getOrElse(IO.pure(None))
       }.map(_.flatten)
 
-      linkUpdates <- updatedLinks.traverse  { updatedLink =>
+      linkUpdates <- updatedLinks.traverse { updatedLink =>
         for
           userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
           tgChatIds = userLinks.map(_.chatId)
@@ -106,9 +105,10 @@ class QuartzScheduler(
             None
         }
       }.map(_.flatten)
-      
+
       _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
+      _ <-
+        logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
     } yield ()
 
   def runScheduler: IO[Unit] = {

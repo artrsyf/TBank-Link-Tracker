@@ -12,9 +12,9 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import java.time.Instant
 
 class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
-  private val testChatId = 100L
-  private val testUrl = "https://example.com"
-  private val testTags = List("tag1", "tag2")
+  private val testChatId  = 100L
+  private val testUrl     = "https://example.com"
+  private val testTags    = List("tag1", "tag2")
   private val testFilters = List("filter1")
 
   private def newAddRequest = AddLinkRequest(testUrl, testTags, testFilters)
@@ -24,16 +24,16 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
       linkState: Map[String, model.Link] = Map.empty,
       userLinkState: Map[(Long, Long), model.UserLink] = Map.empty
   ): IO[InMemoryLinkRepository] = for {
-    linkRef <- Ref.of[IO, Map[String, model.Link]](linkState)
+    linkRef     <- Ref.of[IO, Map[String, model.Link]](linkState)
     userLinkRef <- Ref.of[IO, Map[(Long, Long), model.UserLink]](userLinkState)
-    logger <- Slf4jLogger.create[IO]
+    logger      <- Slf4jLogger.create[IO]
   } yield new InMemoryLinkRepository(linkRef, userLinkRef, logger)
 
   test("createUserLink creates new link and user link") {
     val result = for {
-      repo <- createRepo()
-      link <- repo.createUserLink(newLinkEntity)
-      allLinks <- repo.getLinks
+      repo      <- createRepo()
+      link      <- repo.createUserLink(newLinkEntity)
+      allLinks  <- repo.getLinks
       userLinks <- repo.getUserLinksByChatId(testChatId)
     } yield (link, allLinks, userLinks)
 
@@ -47,7 +47,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
 
   test("createUserLink uses existing link if already present") {
     val existingLink = model.Link(1L, testUrl, Instant.now())
-    val repoIO = createRepo(linkState = Map(testUrl -> existingLink))
+    val repoIO       = createRepo(linkState = Map(testUrl -> existingLink))
 
     val result = for {
       repo <- repoIO
@@ -60,7 +60,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
   }
 
   test("deleteUserLink deletes user link and returns entity") {
-    val modelLink = model.Link(1L, testUrl, Instant.now())
+    val modelLink     = model.Link(1L, testUrl, Instant.now())
     val modelUserLink = model.UserLink(testChatId, 1L, testTags, testFilters, Instant.now())
     val repoIO = createRepo(
       linkState = Map(testUrl -> modelLink),
@@ -68,8 +68,8 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
     )
 
     val result = for {
-      repo <- repoIO
-      deleted <- repo.deleteUserLink(testUrl, testChatId)
+      repo      <- repoIO
+      deleted   <- repo.deleteUserLink(testUrl, testChatId)
       remaining <- repo.getUserLinksByChatId(testChatId)
     } yield (deleted, remaining)
 
@@ -83,7 +83,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
     val modelLink = model.Link(1L, testUrl, Instant.now())
     val userLinks = Map(
       (testChatId, 1L) -> model.UserLink(testChatId, 1L, testTags, testFilters, Instant.now()),
-      (999L, 1L) -> model.UserLink(999L, 1L, List("tag3"), List(), Instant.now())
+      (999L, 1L)       -> model.UserLink(999L, 1L, List("tag3"), List(), Instant.now())
     )
 
     val repoIO = createRepo(
@@ -92,7 +92,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
     )
 
     val result = for {
-      repo <- repoIO
+      repo  <- repoIO
       links <- repo.getUserLinksByLinkUrl(testUrl)
     } yield links
 
@@ -102,10 +102,10 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
 
   test("update updates an existing link") {
     val modelLink = model.Link(1L, testUrl, Instant.now())
-    val repoIO = createRepo(linkState = Map(testUrl -> modelLink))
+    val repoIO    = createRepo(linkState = Map(testUrl -> modelLink))
 
     val result = for {
-      repo <- repoIO
+      repo    <- repoIO
       updated <- repo.update(modelLink.copy(updatedAt = Instant.EPOCH))
     } yield updated
 
@@ -119,7 +119,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
     val repoIO = createRepo()
 
     val result = for {
-      repo <- repoIO
+      repo    <- repoIO
       updated <- repo.update(model.Link(1L, testUrl, Instant.now()))
     } yield updated
 
@@ -133,7 +133,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
 
     val result = for {
       repo <- createRepo(linkState = links)
-      all <- repo.getLinks
+      all  <- repo.getLinks
     } yield all
 
     val all = result.unsafeRunSync()
@@ -141,8 +141,8 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
   }
 
   test("getUserLinksByChatId returns user-specific links") {
-    val link = model.Link(1L, testUrl, Instant.now())
-    val userLink = model.UserLink(testChatId, 1L, testTags, testFilters, Instant.now())
+    val link      = model.Link(1L, testUrl, Instant.now())
+    val userLink  = model.UserLink(testChatId, 1L, testTags, testFilters, Instant.now())
     val userLink2 = model.UserLink(99L, 1L, List("other"), List(), Instant.now())
 
     val result = for {
@@ -150,7 +150,7 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
         linkState = Map(testUrl -> link),
         userLinkState = Map(
           (testChatId, 1L) -> userLink,
-          (99L, 1L) -> userLink2
+          (99L, 1L)        -> userLink2
         )
       )
       links <- repo.getUserLinksByChatId(testChatId)
@@ -160,4 +160,4 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
     links.length shouldBe 1
     links.head.chatId shouldBe testChatId
   }
-} 
+}

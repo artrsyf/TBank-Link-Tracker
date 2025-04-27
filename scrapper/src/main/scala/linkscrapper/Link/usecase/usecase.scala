@@ -9,7 +9,6 @@ import linkscrapper.link.domain.entity
 import linkscrapper.link.domain.entity.LinkError
 import linkscrapper.link.repository.LinkRepository
 
-
 trait LinkUsecase[F[_]]:
   def addUserLink(createRequest: dto.AddLinkRequest, chatId: Long): F[Either[LinkError, entity.Link]]
   def updateLink(linkModel: model.Link): F[Either[LinkError, model.Link]]
@@ -65,8 +64,8 @@ object LinkUsecase:
       for
         modelLinks <- linkRepo.getLinks
       yield modelLinks
-    
-    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] = 
+
+    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
       for
         entityLinks <- linkRepo.getUserLinksByLinkUrl(linkUrl)
       yield entityLinks
