@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS links (
+    id SERIAL PRIMARY KEY,
+    url VARCHAR(255) NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT unique_url UNIQUE (url) 
+);

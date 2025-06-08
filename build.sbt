@@ -29,3 +29,20 @@ lazy val scrapper = (project in file("scrapper"))
         dockerExposedPorts   := List(8080),
         dockerBaseImage      := "eclipse-temurin:21",
     )
+
+lazy val migrator = (project in file("migrator"))
+    .settings(
+        libraryDependencies ++= Dependencies.allDeps,
+    )
+    .settings(
+        Compile / unmanagedResourceDirectories += baseDirectory.value / "src" / "main" / "migrations"
+    )
+    .enablePlugins(
+        JavaAppPackaging,
+        DockerPlugin,
+    )
+    .settings(
+        Docker / packageName := "migrator-api", 
+        dockerExposedPorts   := List(8082),
+        dockerBaseImage      := "eclipse-temurin:21",
+    )

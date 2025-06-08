@@ -7,6 +7,7 @@ import scala.util.Random
 import cats.effect.IO
 import cats.effect.Ref
 import org.typelevel.log4cats.Logger
+import fs2.Stream
 
 import linkscrapper.link.domain.dto
 import linkscrapper.link.domain.entity
@@ -110,6 +111,11 @@ final class InMemoryLinkRepository(
     for
       links <- linkData.get
     yield links.values.toList
+
+  override def streamAllLinks: Stream[IO, model.Link] =
+    Stream.eval(linkData.get).flatMap { links =>
+      Stream.emits(links.values.toList)
+    }
 
   override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
     for

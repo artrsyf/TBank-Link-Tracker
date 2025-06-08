@@ -44,9 +44,8 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
   private def createPresenter() = new TelegramBotPresenter[IO](
     mockBackend,
     mockDialogRepo,
-    config,
-    logger
-  )(using Async[IO], Parallel[IO], mockApi)
+    config
+  )(using Async[IO], Parallel[IO], mockApi, logger)
 
   test("should handle valid /track command with URL") {
     val presenter = createPresenter()

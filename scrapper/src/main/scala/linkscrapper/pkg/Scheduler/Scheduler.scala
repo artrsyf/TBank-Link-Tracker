@@ -17,6 +17,7 @@ import sttp.client3.httpclient.cats.HttpClientCatsBackend
 import sttp.tapir.json.tethysjson
 import tethys._
 import tethys.jackson._
+import fs2.Stream
 
 import linkscrapper.config.SchedulerConfig
 import linkscrapper.link.usecase.LinkUsecase
@@ -63,53 +64,103 @@ class QuartzScheduler(
       }
     yield ()
 
-  private def fetchLinkUpdates: IO[Unit] =
-    for {
-      _ <- logger.info("Fetching link updates")
+  private def fetchLinkUpdates: IO[Unit] = {
+    linkUsecase.streamAllLinks.evalMap { link =>
+      clients.collectFirst {
+        case (prefix, client) if link.url.startsWith(prefix) =>
+          client.getUpdates(link.url, link.updatedAt).flatMap {
+            case Right(linkUpdatesRaw) =>
+              val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
 
-      links <- linkUsecase.getLinks
-      updatedLinks <- links.traverse { link =>
-        clients.collectFirst {
-          case (prefix, client) if link.url.startsWith(prefix) =>
-            client.getLastUpdate(link.url).flatMap {
-              case Right(updatedTime) =>
-                if (updatedTime.isAfter(link.updatedAt)) then
-                  val updatedLink = link.copy(updatedAt = updatedTime)
+              if (linkUpdates.isEmpty) IO.pure(None)
+              else {
+                val updatedLink = link.copy(updatedAt = Instant.now())
+                linkUsecase.updateLink(updatedLink).flatMap {
+                  case Right(updatedLinkEntity) =>
+                    IO.pure(Some((updatedLinkEntity, linkUpdates)))
+                  case Left(errorResp) =>
+                    logger.warn(s"Failed to update link | error=${errorResp.message}").as(None)
+                }
+              }
 
-                  linkUsecase.updateLink(updatedLink).flatMap {
-                    case Right(updatedLinkEntity) =>
-                      IO.pure(Some(updatedLinkEntity))
-                    case Left(errorResp) =>
-                      logger.warn(s"Failed to update link | error=${errorResp.message}").map(_ => None)
-                  }
-                else
-                  IO.pure(None)
-              case Left(error) =>
-                IO.pure(None)
-            }
-        }.getOrElse(IO.pure(None))
-      }.map(_.flatten)
-
-      linkUpdates <- updatedLinks.traverse { updatedLink =>
-        for
+            case Left(_) =>
+              IO.pure(None)
+          }
+      }.getOrElse(IO.pure(None))
+    }
+      .unNone
+      .evalMap { case (updatedLink, updates) =>
+        for {
           userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
-          tgChatIds = userLinks.map(_.chatId)
-        yield {
-          if (tgChatIds.nonEmpty) then
-            Some(dto.LinkUpdate(
-              url = updatedLink.url,
-              description = "Got update!",
-              tgChatIds = tgChatIds,
-            ))
-          else
-            None
+          tgChatIds   = userLinks.map(_.chatId)
+          description = updates.map(_.description).mkString("\n\n---\n\n")
+        } yield {
+          if (tgChatIds.nonEmpty)
+            Some(dto.LinkUpdate(updatedLink.url, description, tgChatIds))
+          else None
         }
-      }.map(_.flatten)
+      }
+      .unNone
+      .compile
+      .toList
+      .flatMap { linkUpdates =>
+        if (linkUpdates.nonEmpty)
+          sendUpdatedLinks(linkUpdates) *> logger.info(
+            s"Sending updated links to bot-service | count=${linkUpdates.length}"
+          )
+        else
+          IO.unit
+      }
+  }
 
-      _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
-      _ <-
-        logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}").whenA(linkUpdates.nonEmpty)
-    } yield ()
+  // private def fetchLinkUpdates: IO[Unit] =
+  //   for {
+  //     _ <- logger.info("Fetching link updates")
+
+  //     links <- linkUsecase.getLinks
+  //     updatedLinks <- links.traverse { link =>
+  //       clients.collectFirst {
+  //         case (prefix, client) if link.url.startsWith(prefix) =>
+  //           client.getUpdates(link.url, link.updatedAt).flatMap {
+  //             case Right(linkUpdatesRaw) =>
+  //               val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
+
+  //               if (linkUpdates.isEmpty) IO.pure(None)
+  //               else {
+  //                 val updatedLink = link.copy(updatedAt = Instant.now())
+  //                 linkUsecase.updateLink(updatedLink).flatMap {
+  //                   case Right(updatedLinkEntity) =>
+  //                     IO.pure(Some((updatedLinkEntity, linkUpdates)))
+  //                   case Left(errorResp) =>
+  //                     logger.warn(s"Failed to update link | error=${errorResp.message}").as(None)
+  //                 }
+  //               }
+
+  //             case Left(_) => IO.pure(None)
+  //           }
+  //       }.getOrElse(IO.pure(None))
+  //     }
+
+  //     linkUpdates <- updatedLinks.flatten.traverse { case (updatedLink, updates) =>
+  //       for {
+  //         userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
+  //         tgChatIds = userLinks.map(_.chatId)
+  //         description = updates.map(_.description).mkString("\n\n---\n\n")
+  //       } yield {
+  //         if (tgChatIds.nonEmpty)
+  //           Some(dto.LinkUpdate(
+  //             url = updatedLink.url,
+  //             description = description,
+  //             tgChatIds = tgChatIds
+  //           ))
+  //         else None
+  //       }
+  //     }.map(_.flatten)
+
+  //     _ <- sendUpdatedLinks(linkUpdates).whenA(linkUpdates.nonEmpty)
+  //     _ <- logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}")
+  //       .whenA(linkUpdates.nonEmpty)
+  //   } yield ()
 
   def runScheduler: IO[Unit] = {
     val quartzProperties = new java.util.Properties()
@@ -153,7 +204,7 @@ class QuartzScheduler(
       case CronJob =>
         fetchLinkUpdates
       case CheckJob =>
-        IO.println(s"Single job check")
+        logger.info(s"Single job check")
     }.foreverM
   }
 }

@@ -2,5 +2,14 @@ package linkscrapper.pkg.Client
 
 import java.time.Instant
 
+import tethys._
+import tethys.jackson._
+
+case class LinkUpdate(
+    url: String,
+    updatedAt: Instant,
+    description: String,
+) derives JsonWriter
+
 trait LinkClient[F[_]]:
-  def getLastUpdate(url: String): F[Either[String, Instant]]
+  def getUpdates(url: String, since: Instant): F[Either[String, List[LinkUpdate]]]
