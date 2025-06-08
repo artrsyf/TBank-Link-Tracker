@@ -82,7 +82,14 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-scalatest" % testcontainersScalaVersion % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
     "org.postgresql" % "postgresql" % "42.5.1"
-)
+  )
+
+  // kafka
+  val fs2KafkaVersion        = "3.6.0"
+
+  val kafkaDependencies = List(
+    "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion
+  )
 
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
@@ -109,5 +116,5 @@ object Dependencies {
     log4catsCore,
     scalaTest,
     mockito,
-  ) ++ rdbmsDependencies ++ testContainers
+  ) ++ rdbmsDependencies ++ testContainers ++ kafkaDependencies
 }
