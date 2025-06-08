@@ -19,10 +19,10 @@ object Main extends IOApp:
   override def run(args: List[String]): IO[ExitCode] =
     for
       appConfig <- AppConfig.load
-      _ <- logger.info("Migration starting")
-      _ <- IO.println(appConfig.db)
-      _ <- runLiquibaseMigration(appConfig.db, "changelog.xml")
-      _ <- logger.info("Migration complete")
+      _         <- logger.info("Migration starting")
+      _         <- IO.println(appConfig.db)
+      _         <- runLiquibaseMigration(appConfig.db, "changelog.xml")
+      _         <- logger.info("Migration complete")
     yield ExitCode.Success
 
   private def runLiquibaseMigration(config: DbConfig, changelogPath: String): IO[Unit] =

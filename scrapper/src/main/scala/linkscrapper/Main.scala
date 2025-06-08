@@ -55,11 +55,11 @@ object Main extends IOApp:
     } yield exitCode
 
   def runApp(
-    hikariTransactor: Option[HikariTransactor[IO]],
-    appConfig: AppConfig
+      hikariTransactor: Option[HikariTransactor[IO]],
+      appConfig: AppConfig
   ): IO[ExitCode] =
     for {
-      backend <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
+      backend             <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
       githubClient        <- IO(GitHubClient.make(backend))
       stackoverflowClient <- IO(StackOverflowClient.make(backend))
 

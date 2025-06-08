@@ -112,12 +112,12 @@ final class InMemoryLinkRepository(
       links <- linkData.get
     yield links.values.toList
 
-  override def streamAllLinks: Stream[IO, model.Link] = 
+  override def streamAllLinks: Stream[IO, model.Link] =
     Stream.eval(linkData.get).flatMap { links =>
       Stream.emits(links.values.toList)
     }
 
-  override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] = 
+  override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
     for
       links     <- linkData.get
       userLinks <- userLinkData.get

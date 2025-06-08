@@ -147,7 +147,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
   }
 
   override def onCallbackQuery(callbackQuery: CallbackQuery): F[Unit] = {
-    val chatId = callbackQuery.from.id
+    val chatId    = callbackQuery.from.id
     val answerAck = Methods.answerCallbackQuery(callbackQuery.id).exec.void
 
     callbackQuery.data match {
@@ -178,13 +178,12 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     }
   }
 
-
   override def publishLinkUpdate(chatId: Long, linkUpdate: dto.LinkUpdate): F[Unit] = {
     val linkUpdateMessage = ResponseMessage.IncomingLinkUpdateMessage(linkUpdate).message
-    val safeMessage = 
-      if (linkUpdateMessage.length > 4096) 
+    val safeMessage =
+      if (linkUpdateMessage.length > 4096)
         linkUpdateMessage.take(4093) + "..."
-      else 
+      else
         linkUpdateMessage
     logger.info(s"Sending link update message | message=${linkUpdateMessage}")
     Methods.sendMessage(

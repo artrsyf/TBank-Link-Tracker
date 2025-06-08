@@ -5,7 +5,7 @@ import java.time.Instant
 import doobie.implicits.javatimedrivernative.*
 import doobie.Read
 
-type Links   = List[Link]
+type Links = List[Link]
 
 final case class Link(
     id: Long,
@@ -14,5 +14,5 @@ final case class Link(
 )
 
 object Link {
-    given Read[Link] = Read[(Long, String, Instant)].map(Link(_, _, _))
+  given Read[Link] = Read[(Long, String, Instant)].map(Link(_, _, _))
 }

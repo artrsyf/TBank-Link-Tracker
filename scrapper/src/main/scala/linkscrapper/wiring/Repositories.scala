@@ -33,7 +33,7 @@ object Repositories:
       linkRepo,
     )
 
-  def makePostgres(hikariTransactor: HikariTransactor[IO])(using logger: Logger[IO]): IO[Repositories] = 
+  def makePostgres(hikariTransactor: HikariTransactor[IO])(using logger: Logger[IO]): IO[Repositories] =
     IO.delay {
       val chatRepo = PostgresChatRepository(hikariTransactor, logger)
       val linkRepo = PostgresLinkRepository(hikariTransactor, logger)
@@ -44,10 +44,10 @@ object Repositories:
   def make(dbType: String, hikariTransactor: Option[HikariTransactor[IO]])(using logger: Logger[IO]): IO[Repositories] =
     dbType match {
       case "postgres" =>
-        hikariTransactor  match {
+        hikariTransactor match {
           case Some(xa) => makePostgres(xa)(using logger)
-          case None => IO.raiseError(new IllegalArgumentException("HikariTransactor is required for Postgres"))
+          case None     => IO.raiseError(new IllegalArgumentException("HikariTransactor is required for Postgres"))
         }
       case "inmemory" => makeInMemory
-      case _ => IO.raiseError(new IllegalArgumentException(s"Unsupported dbType: $dbType"))
+      case _          => IO.raiseError(new IllegalArgumentException(s"Unsupported dbType: $dbType"))
     }

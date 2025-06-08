@@ -68,10 +68,10 @@ object LinkUsecase:
         modelLinks <- linkRepo.getLinks
       yield modelLinks
 
-    override def streamAllLinks: Stream[IO, Link] = 
+    override def streamAllLinks: Stream[IO, Link] =
       linkRepo.streamAllLinks
-    
-    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] = 
+
+    override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
       for
         entityLinks <- linkRepo.getUserLinksByLinkUrl(linkUrl)
       yield entityLinks

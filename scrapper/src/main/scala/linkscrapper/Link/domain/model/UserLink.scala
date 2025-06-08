@@ -18,9 +18,9 @@ final case class UserLink(
 )
 
 object UserLink {
-    given Read[UserLink] = Read[(Long, Long, String, String, Instant)].map {
+  given Read[UserLink] = Read[(Long, Long, String, String, Instant)].map {
     case (chatId, linkId, tagsStr, filtersStr, createdAt) =>
-      val tags = if tagsStr.isBlank then List.empty else tagsStr.split(",").toList
+      val tags    = if tagsStr.isBlank then List.empty else tagsStr.split(",").toList
       val filters = if filtersStr.isBlank then List.empty else filtersStr.split(",").toList
       UserLink(chatId, linkId, tags, filters, createdAt)
   }

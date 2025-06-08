@@ -14,8 +14,8 @@ import linkscrapper.link.domain.{dto, entity, model}
 import linkscrapper.link.repository
 
 final class PostgresLinkRepository(
-  transactor: Transactor[IO],
-  logger: Logger[IO],
+    transactor: Transactor[IO],
+    logger: Logger[IO],
 ) extends repository.LinkRepository[IO]:
   private def now = IO.realTimeInstant
 
@@ -23,8 +23,8 @@ final class PostgresLinkRepository(
     for
       now <- now
       result <- {
-        val insertLink: ConnectionIO[Long] = 
-        sql"""
+        val insertLink: ConnectionIO[Long] =
+          sql"""
           INSERT INTO links (url, updated_at)
           VALUES (${linkEntity.url}, ${Timestamp.from(now)})
           ON CONFLICT (url) DO UPDATE SET updated_at = EXCLUDED.updated_at
@@ -32,22 +32,24 @@ final class PostgresLinkRepository(
         """.query[Long].unique
 
         val insertUserLink: Long => ConnectionIO[Unit] = linkId =>
-        sql"""
+          sql"""
           INSERT INTO user_links (chat_id, link_id, tags, filters, created_at)
-          VALUES (${linkEntity.chatId}, $linkId, ${linkEntity.tags.mkString(",")}, ${linkEntity.filters.mkString(",")}, ${Timestamp.from(now)})
+          VALUES (${linkEntity.chatId}, $linkId, ${linkEntity.tags.mkString(",")}, ${linkEntity.filters.mkString(
+              ","
+            )}, ${Timestamp.from(now)})
           ON CONFLICT DO NOTHING
         """.update.run.void
 
         for {
           linkId <- insertLink
-          _ <- insertUserLink(linkId)
+          _      <- insertUserLink(linkId)
         } yield {
-          val linkModel = model.Link(linkId, linkEntity.url, now)
+          val linkModel     = model.Link(linkId, linkEntity.url, now)
           val userLinkModel = model.UserLink(linkEntity.chatId, linkId, linkEntity.tags, linkEntity.filters, now)
           dto.LinkModelToEntity(linkModel, userLinkModel)
         }
       }.transact(transactor)
-      .flatTap(link => logger.info(s"Successfully created UserLink | chatId=${link.chatId} url=${link.url}"))
+        .flatTap(link => logger.info(s"Successfully created UserLink | chatId=${link.chatId} url=${link.url}"))
     yield result
 
   override def update(linkModel: model.Link): IO[Option[model.Link]] =
@@ -83,7 +85,6 @@ final class PostgresLinkRepository(
 
         case None =>
           logger.info(s"Can't delete user link, link not found | url=$linkUrl") *> IO.pure(None)
-
     yield result
 
   override def getUserLinksByChatId(chatId: Long): IO[entity.Links] =
@@ -105,13 +106,13 @@ final class PostgresLinkRepository(
       .to[List]
       .transact(transactor)
 
-  override def streamAllLinks: Stream[IO, model.Link] = 
+  override def streamAllLinks: Stream[IO, model.Link] =
     sql"SELECT id, url, updated_at FROM links"
       .query[model.Link]
       .stream
       .transact(transactor)
 
-  override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] = 
+  override def getUserLinksByLinkUrl(linkUrl: String): IO[entity.Links] =
     sql"""
       SELECT l.id, l.url, l.updated_at,
              ul.chat_id, ul.link_id, ul.tags, ul.filters, ul.created_at

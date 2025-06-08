@@ -11,5 +11,5 @@ final case class Chat(
 )
 
 object Chat {
-    given Read[Chat] = Read[(Long, Instant)].map(Chat(_, _))
+  given Read[Chat] = Read[(Long, Instant)].map(Chat(_, _))
 }

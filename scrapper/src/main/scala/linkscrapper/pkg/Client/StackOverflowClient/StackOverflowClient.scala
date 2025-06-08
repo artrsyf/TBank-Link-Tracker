@@ -17,15 +17,15 @@ import linkscrapper.pkg.Client.{LinkClient, LinkUpdate}
 final case class StackUser(display_name: String) derives JsonReader
 
 final case class StackAnswer(
-  creation_date: Long,
-  body: String,
-  owner: StackUser
+    creation_date: Long,
+    body: String,
+    owner: StackUser
 ) derives JsonReader
 
 final case class StackComment(
-  creation_date: Long,
-  body: String,
-  owner: StackUser
+    creation_date: Long,
+    body: String,
+    owner: StackUser
 ) derives JsonReader
 
 final case class StackAnswerResponse(items: List[StackAnswer]) derives JsonReader
@@ -39,7 +39,7 @@ trait StackOverflowClient[F[_]: Monad] extends LinkClient[F]:
 
     questionIdOpt match
       case Some(questionId) =>
-        val answers = getAnswers(questionId, since)
+        val answers  = getAnswers(questionId, since)
         val comments = getComments(questionId, since)
 
         (answers, comments).mapN {
@@ -73,7 +73,7 @@ object StackOverflowClient:
     override def getAnswers(questionId: Int, since: Instant): IO[Either[String, List[LinkUpdate]]] =
       val request = basicRequest
         .get(uri"$baseUrl/questions/$questionId/answers?order=desc&sort=creation&site=stackoverflow&filter=withbody")
-      
+
       client.send(request).map { resp =>
         resp.body match
           case Right(json) =>
@@ -122,7 +122,7 @@ object StackOverflowClient:
   def make(client: SttpBackend[IO, Any]): StackOverflowClient[IO] =
     Impl(client)
 
-// import cats.effect.IO 
+// import cats.effect.IO
 // import sttp.client3.httpclient.cats.HttpClientCatsBackend
 // import sttp.client3.*
 // object Main extends IOApp:

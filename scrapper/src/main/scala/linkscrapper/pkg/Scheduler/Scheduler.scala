@@ -24,7 +24,6 @@ import linkscrapper.link.usecase.LinkUsecase
 import linkscrapper.link.domain.dto
 import linkscrapper.pkg.Client.LinkClient
 
-
 sealed trait ParentJob
 object ParentJob {
   implicit val jobCodec: JobCodec[ParentJob] = deriveJobCodec[ParentJob]
@@ -89,27 +88,29 @@ class QuartzScheduler(
           }
       }.getOrElse(IO.pure(None))
     }
-    .unNone
-    .evalMap { case (updatedLink, updates) =>
-      for {
-        userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
-        tgChatIds = userLinks.map(_.chatId)
-        description = updates.map(_.description).mkString("\n\n---\n\n")
-      } yield {
-        if (tgChatIds.nonEmpty)
-          Some(dto.LinkUpdate(updatedLink.url, description, tgChatIds))
-        else None
+      .unNone
+      .evalMap { case (updatedLink, updates) =>
+        for {
+          userLinks <- linkUsecase.getUserLinksByLinkUrl(updatedLink.url)
+          tgChatIds   = userLinks.map(_.chatId)
+          description = updates.map(_.description).mkString("\n\n---\n\n")
+        } yield {
+          if (tgChatIds.nonEmpty)
+            Some(dto.LinkUpdate(updatedLink.url, description, tgChatIds))
+          else None
+        }
       }
-    }
-    .unNone
-    .compile
-    .toList
-    .flatMap { linkUpdates =>
-      if (linkUpdates.nonEmpty)
-        sendUpdatedLinks(linkUpdates) *> logger.info(s"Sending updated links to bot-service | count=${linkUpdates.length}")
-      else
-        IO.unit
-    }
+      .unNone
+      .compile
+      .toList
+      .flatMap { linkUpdates =>
+        if (linkUpdates.nonEmpty)
+          sendUpdatedLinks(linkUpdates) *> logger.info(
+            s"Sending updated links to bot-service | count=${linkUpdates.length}"
+          )
+        else
+          IO.unit
+      }
   }
 
   // private def fetchLinkUpdates: IO[Unit] =

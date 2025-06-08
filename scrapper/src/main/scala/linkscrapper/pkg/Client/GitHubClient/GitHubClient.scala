@@ -15,14 +15,14 @@ import tethys.jackson._
 import linkscrapper.pkg.Client.{LinkClient, LinkUpdate}
 
 final case class GitHubUser(
-  login: String
+    login: String
 ) derives JsonReader
 
 final case class GitHubItem(
-  title: String,
-  user: GitHubUser,
-  created_at: String,
-  body: Option[String],
+    title: String,
+    user: GitHubUser,
+    created_at: String,
+    body: Option[String],
 ) derives JsonReader
 
 trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
@@ -34,11 +34,11 @@ trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
       val owner = requestParts(0)
       val repo  = requestParts(1)
 
-      val prUpdates = getPullRequests(owner, repo, since)
+      val prUpdates    = getPullRequests(owner, repo, since)
       val issueUpdates = getIssues(owner, repo, since)
 
       for {
-        prs <- prUpdates
+        prs    <- prUpdates
         issues <- issueUpdates
       } yield {
         (prs, issues) match {
@@ -57,7 +57,8 @@ trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
     LinkUpdate(
       url = s"https://github.com/$owner/$repo/${gitHubItem.title}",
       updatedAt = Instant.parse(gitHubItem.created_at),
-      description = s"Title: ${gitHubItem.title}\nUser: ${gitHubItem.user.login}\nDescription: ${gitHubItem.body.getOrElse("")}"
+      description =
+        s"Title: ${gitHubItem.title}\nUser: ${gitHubItem.user.login}\nDescription: ${gitHubItem.body.getOrElse("")}"
     )
   }
 
@@ -125,4 +126,3 @@ object GitHubClient:
 //           IO.println(s"\n❌ Error: $error")
 //       }
 //     }.as(ExitCode.Success)
-
