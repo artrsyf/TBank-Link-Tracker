@@ -249,8 +249,8 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
           val links = json.jsonAs[List[dto.LinkResponse]] match
             case Right(linkList) => linkList
             case Left(error) =>
-              logger.warn(s"Can't parse json form scrapper-service response | error=${error.toString()}")
-              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.toString()).message)
+              logger.warn(s"Can't parse json form scrapper-service response | error=${error.getMessage()}")
+              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.getMessage()).message)
                 .exec.void
               List()
           if links.isEmpty then
@@ -261,7 +261,7 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
             }.void
 
         case Left(error) =>
-          logger.error(s"Can't send list request to scrapper-service | error=${error.toString()}")
+          logger.error(s"Can't send list request to scrapper-service | error=${error}")
           Methods.sendMessage(ChatIntId(chatId), ResponseMessage.RequestErrorMessage(error).message).exec.void
       }
     }

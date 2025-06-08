@@ -205,7 +205,7 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
         verify(mockApi).execute(
           Methods.sendMessage(
             ChatIntId(testChatId),
-            ResponseMessage.FailedParseJsonMessage(error.toString()).message,
+            ResponseMessage.FailedParseJsonMessage(error.getMessage()).message,
           )
         )
       case Right(_) => fail("Failed test: didn't catch json parse error")
