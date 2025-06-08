@@ -71,8 +71,18 @@ object Dependencies {
     "org.liquibase"  % "liquibase-core"  % liquibaseVersion,
     "org.tpolecat"  %% "doobie-core"     % doobieVersion,
     "org.tpolecat"  %% "doobie-postgres" % doobieVersion,
-    "org.tpolecat"  %% "doobie-hikari"   % doobieVersion
+    "org.tpolecat"  %% "doobie-hikari"   % doobieVersion,
+    "org.tpolecat"  %% "doobie-h2"       % doobieVersion
   )
+
+  // testcontainers
+  val testcontainersScalaVersion = "0.43.0"
+
+  val testContainers: List[ModuleID] = List(
+    "com.dimafeng" %% "testcontainers-scala-scalatest" % testcontainersScalaVersion % Test,
+    "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
+    "org.postgresql" % "postgresql" % "42.5.1"
+)
 
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
@@ -99,5 +109,5 @@ object Dependencies {
     log4catsCore,
     scalaTest,
     mockito,
-  ) ++ rdbmsDependencies
+  ) ++ rdbmsDependencies ++ testContainers
 }
