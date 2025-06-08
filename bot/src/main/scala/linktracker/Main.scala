@@ -30,6 +30,8 @@ import linkscrapper.dialog.repository.InMemory.InMemoryDialogRepository
 import linktracker.link.delivery.http._
 import linktracker.link.presenter.TelegramBotPresenter.TelegramBotPresenter
 import linktracker.link.usecase.LinkUsecase
+import linktracker.link.repository.Http.HttpLinkRepository
+import linktracker.chat.repository.Http.HttpChatRepository
 
 object Main extends IOApp {
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
@@ -39,6 +41,7 @@ object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     for {
       appConfig <- AppConfig.load
+      telegramConfig = appConfig.telegram
 
       http4sBackend <- EmberClientBuilder.default[IO].build.use(IO.pure)
       sttpClient    <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
@@ -46,11 +49,13 @@ object Main extends IOApp {
       given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
       dialogRepository = new InMemoryDialogRepository
+      linkRepository   = new HttpLinkRepository(telegramConfig.scrapperServiceUrl, sttpClient, logger)
+      chatRepository   = new HttpChatRepository(telegramConfig.scrapperServiceUrl, sttpClient, logger)
       bot = new TelegramBotPresenter[IO](
-        sttpClient,
+        linkRepository,
+        chatRepository,
         dialogRepository,
-        appConfig.telegram,
-        // logger,
+        telegramConfig,
       )
 
       linkUsecase = LinkUsecase.make(bot)

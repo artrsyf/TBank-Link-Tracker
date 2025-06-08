@@ -25,6 +25,8 @@ import linktracker.dialog.repository.DialogRepository
 import linktracker.link.domain.dto
 import linktracker.link.domain.entity.{CallbackEvents, CommandDescription, ResponseMessage}
 import linktracker.link.presenter.LinkPresenter
+import linktracker.link.repository.LinkRepository
+import linktracker.chat.repository.ChatRepository
 
 trait CommandHandler[F[_]] {
   def description: String
@@ -76,14 +78,11 @@ object Commands {
 }
 
 class TelegramBotPresenter[F[_]: Async: Parallel](
-    client: SttpBackend[F, Any],
+    linkRepo: LinkRepository[F],
+    chatRepo: ChatRepository[F],
     dialogRepo: DialogRepository[F],
     telegramConfig: TelegramConfig,
-    // logger: Logger[F],
 )(using api: Api[F], logger: Logger[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
-  private def basicSecuredRequest(chatId: Long) = basicRequest
-    .header("Tg-Chat-Id", chatId.toString)
-
   private val cancelTagsButton =
     InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = CallbackEvents.cancelTagsButtonPressed)
 
@@ -196,29 +195,10 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
     dialogRepo.put(chatId, state)
 
   def signup(chatId: Long): F[Unit] = {
-    logger.error("check check")
-    val request = basicRequest
-      .post(uri"${telegramConfig.scrapperServiceUrl}/tg-chat/${chatId}")
-
-    client.send(request).attempt.flatMap {
-      case Right(response) =>
-        response.code match {
-          case StatusCode.Ok =>
-            logger.info(s"Successful signup request to scrapper")
-            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullRegisterMessage.message).exec.void
-          case _ =>
-            logger.warn(s"Unexpected signup response status code | code=${response.code}")
-            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedRegisterMessage.message).exec.void
-        }
-
-      case Left(ex: SttpClientException.ConnectException) =>
-        logger.error(s"Can't send signup request to scrapper-service | error=${ex}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
-
-      case Left(error) =>
-        logger.error(s"Can't send signup request to scrapper-service | error=${error.getMessage}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
-    }
+    for {
+      response <- chatRepo.create(chatId)
+      _        <- Methods.sendMessage(ChatIntId(chatId), response.message).exec.void
+    } yield ()
   }
 
   def untrackUrl(chatId: Long, url: String): F[Unit] = {
@@ -226,28 +206,10 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       link = url,
     )
 
-    val request = basicSecuredRequest(chatId)
-      .delete(uri"${telegramConfig.scrapperServiceUrl}/links")
-      .body(removeLinkRequest.asJson)
-      .contentType("application/json")
-
-    client.send(request).attempt.flatMap {
-      case Right(response) if response.code == StatusCode.Ok =>
-        logger.info(s"Successful untrack request to scrapper")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkDeletionMessage.message).exec.void
-
-      case Right(response) =>
-        logger.warn(s"Unexpected untrack response status code | code=${response.code}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkDeltionMessage.message).exec.void
-
-      case Left(ex: SttpClientException.ConnectException) =>
-        logger.error(s"Can't send untrack request to scrapper-service | error=${ex}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
-
-      case Left(error) =>
-        logger.error(s"Can't send untrack request to scrapper-service | error=${error.getMessage}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
-    }
+    for {
+      response <- linkRepo.delete(removeLinkRequest, chatId)
+      _        <- Methods.sendMessage(ChatIntId(chatId), response.message).exec.void
+    } yield ()
   }
 
   def trackUrlWithMeta(chatId: Long, url: String)(tags: List[String], filters: List[String]): F[Unit] = {
@@ -257,56 +219,24 @@ class TelegramBotPresenter[F[_]: Async: Parallel](
       filters = filters,
     )
 
-    val request = basicSecuredRequest(chatId)
-      .post(uri"${telegramConfig.scrapperServiceUrl}/links")
-      .body(addLinkRequest.asJson)
-      .contentType("application/json")
-
-    client.send(request).attempt.flatMap {
-      case Right(response) if response.code == StatusCode.Ok =>
-        logger.info(s"Successful track request to scrapper")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.SuccessfullLinkAdditionMessage.message).exec.void
-
-      case Right(response) =>
-        logger.warn(s"Unexpected track response status code | code=${response.code}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedLinkAdditionMessage.message).exec.void
-
-      case Left(ex: SttpClientException.ConnectException) =>
-        logger.error(s"Can't send track request to scrapper-service | error=${ex}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ServerUnavailableMessage.message).exec.void
-
-      case Left(error) =>
-        logger.error(s"Can't send track request to scrapper-service | error=${error.getMessage}")
-        Methods.sendMessage(ChatIntId(chatId), ResponseMessage.ErrorMessage(error.getMessage).message).exec.void
-    }
+    for {
+      response <- linkRepo.create(addLinkRequest, chatId)
+      _        <- Methods.sendMessage(ChatIntId(chatId), response.message).exec.void
+    } yield ()
   }
 
   def getLinkList(chatId: Long): F[Unit] = {
-    val request = basicSecuredRequest(chatId)
-      .get(uri"${telegramConfig.scrapperServiceUrl}/links")
-
-    client.send(request).flatMap { response =>
-      response.body match {
-        case Right(json) =>
-          val links = json.jsonAs[List[dto.LinkResponse]] match
-            case Right(linkList) => linkList
-            case Left(error) =>
-              logger.warn(s"Can't parse json form scrapper-service response | error=${error.getMessage()}")
-              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.FailedParseJsonMessage(error.getMessage()).message)
-                .exec.void
-              List()
-          if links.isEmpty then
-            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.EmptyLinkListMessage.message).exec.void
-          else
-            links.parTraverse { link =>
-              Methods.sendMessage(ChatIntId(chatId), ResponseMessage.LinkRepresentationMessage(link).message).exec
-            }.void
-
-        case Left(error) =>
-          logger.error(s"Can't send list request to scrapper-service | error=${error}")
-          Methods.sendMessage(ChatIntId(chatId), ResponseMessage.RequestErrorMessage(error).message).exec.void
+    for {
+      response <- linkRepo.getLinks(chatId)
+      _ <- response match {
+        case Left(responseMessage) =>
+          Methods.sendMessage(ChatIntId(chatId), responseMessage.message).exec.void
+        case Right(links) =>
+          links.parTraverse { link =>
+            Methods.sendMessage(ChatIntId(chatId), ResponseMessage.LinkRepresentationMessage(link).message).exec
+          }.void
       }
-    }
+    } yield ()
   }
 
   def helpReference(chatId: Long, helpText: String): F[Unit] = {

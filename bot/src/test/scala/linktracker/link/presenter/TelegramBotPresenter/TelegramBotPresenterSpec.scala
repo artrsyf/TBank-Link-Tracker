@@ -29,6 +29,8 @@ import linktracker.link.domain.dto.{AddLinkRequest, LinkResponse}
 import linktracker.dialog.domain.model.*
 import linktracker.link.domain.entity.*
 import linktracker.link.domain.dto.*
+import linktracker.link.repository.Http.HttpLinkRepository
+import linktracker.chat.repository.Http.HttpChatRepository
 
 class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSugar {
   given IORuntime = cats.effect.unsafe.IORuntime.global
@@ -40,9 +42,12 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
   private val mockBackend    = mock[SttpBackend[IO, Any]]
   private val config         = TelegramConfig("fake", "http://localhost:8080")
   private val logger         = Slf4jLogger.getLogger[IO]
+  private val linkRepository = new HttpLinkRepository(config.scrapperServiceUrl, mockBackend, logger)
+  private val chatRepository = new HttpChatRepository(config.scrapperServiceUrl, mockBackend, logger)
 
   private def createPresenter() = new TelegramBotPresenter[IO](
-    mockBackend,
+    linkRepository,
+    chatRepository,
     mockDialogRepo,
     config
   )(using Async[IO], Parallel[IO], mockApi, logger)
