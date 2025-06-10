@@ -20,6 +20,7 @@ import linkscrapper.pkg.Client.GitHubClient.GitHubClient
 import linkscrapper.pkg.Client.StackOverflowClient.StackOverflowClient
 import linkscrapper.pkg.Scheduler.QuartzScheduler
 import linkscrapper.wiring.{Repositories, Usecases}
+import linkscrapper.pkg.Publisher.HttpPublisher.HttpPublisher
 
 object Main extends IOApp:
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
@@ -70,12 +71,17 @@ object Main extends IOApp:
 
       repositories <- Repositories.make(appConfig.db.inUse, hikariTransactor)
       usecases = Usecases.make(repositories, clients.keys.toList)
+      linkPublisher = HttpPublisher(
+        appConfig.scheduler.updatesHandlerUrl, 
+        backend, 
+        logger
+      )
 
       scheduler = QuartzScheduler(
         appConfig.scheduler,
         usecases.linkUsecase,
+        linkPublisher,
         clients,
-        backend,
         logger,
       )
 
