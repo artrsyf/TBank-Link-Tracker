@@ -41,14 +41,18 @@ class QuartzScheduler(
 ) {
   private def fetchLinkUpdates: IO[Unit] = {
     linkUsecase.streamAllLinks.evalMap { link =>
+      logger.info(s"Checking link | link=${link}")
       clients.collectFirst {
         case (prefix, client) if link.url.startsWith(prefix) =>
           client.getUpdates(link.url, link.updatedAt).flatMap {
             case Right(linkUpdatesRaw) =>
               val linkUpdates = linkUpdatesRaw.filter(_.updatedAt.isAfter(link.updatedAt))
 
-              if (linkUpdates.isEmpty) IO.pure(None)
-              else {
+              if (linkUpdates.isEmpty) {
+                logger.info("Nothing to update") *> IO.pure(None)
+              } else {
+                logger.info(s"Found link updates | count=${linkUpdates.length}")
+
                 val updatedLink = link.copy(updatedAt = Instant.now())
                 linkUsecase.updateLink(updatedLink).flatMap {
                   case Right(updatedLinkEntity) =>
@@ -128,9 +132,9 @@ class QuartzScheduler(
   def processQueue(queue: Queue[IO, ParentJob]): IO[Unit] = {
     queue.take.flatMap {
       case CronJob =>
-        fetchLinkUpdates
+        fetchLinkUpdates *> logger.info(s"Executing link fetch job")
       case CheckJob =>
-        logger.info(s"Single job check")
+        logger.info(s"Executing smoke job")
     }.foreverM
   }
 }
