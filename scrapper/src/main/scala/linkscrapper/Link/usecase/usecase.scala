@@ -22,9 +22,9 @@ trait LinkUsecase[F[_]]:
 
 object LinkUsecase:
   final private class Impl(
-      linkRepo: LinkRepository[IO],
-      clients: List[String],
-      logger: Logger[IO]
+    linkRepo: LinkRepository[IO],
+    clients: List[String],
+    logger: Logger[IO]
   ) extends LinkUsecase[IO]:
     override def addUserLink(createRequest: dto.AddLinkRequest, chatId: Long): IO[Either[LinkError, entity.Link]] =
       if clients.exists(client => createRequest.link.startsWith(client)) then

@@ -39,7 +39,7 @@ import linktracker.link.delivery.kafka.KafkaLinkUpdatesConsumer
 
 object Main extends IOApp {
   import linktracker.link.domain.dto.LinkUpdate.given
-  
+
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
   private def telegramBotApi(token: String) =
@@ -51,83 +51,83 @@ object Main extends IOApp {
     ).rethrow
 
   override def run(args: List[String]): IO[ExitCode] =
-  for {
-    appConfig <- AppConfig.load
-    telegramConfig = appConfig.telegram
-    httpConfig = appConfig.transport.http
+    for {
+      appConfig <- AppConfig.load
+      telegramConfig = appConfig.telegram
+      httpConfig     = appConfig.transport.http
 
-    http4sBackend <- EmberClientBuilder.default[IO].build.use(IO.pure)
-    sttpClient    <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
+      http4sBackend <- EmberClientBuilder.default[IO].build.use(IO.pure)
+      sttpClient    <- HttpClientCatsBackend.resource[IO]().use(IO.pure)
 
-    given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
+      given Api[IO] = BotApi(http4sBackend, baseUrl = telegramBotApi(appConfig.telegram.botToken))
 
-    dialogRepository = new InMemoryDialogRepository
-    linkRepository   = new HttpLinkRepository(httpConfig.scrapperServiceEndpoint, sttpClient, logger)
-    chatRepository   = new HttpChatRepository(httpConfig.scrapperServiceEndpoint, sttpClient, logger)
-    bot = new TelegramBotPresenter[IO](
-      linkRepository,
-      chatRepository,
-      dialogRepository,
-      telegramConfig,
-    )
+      dialogRepository = new InMemoryDialogRepository
+      linkRepository   = new HttpLinkRepository(httpConfig.scrapperServiceEndpoint, sttpClient, logger)
+      chatRepository   = new HttpChatRepository(httpConfig.scrapperServiceEndpoint, sttpClient, logger)
+      bot = new TelegramBotPresenter[IO](
+        linkRepository,
+        chatRepository,
+        dialogRepository,
+        telegramConfig,
+      )
 
-    linkUsecase = LinkUsecase.make(bot)
+      linkUsecase = LinkUsecase.make(bot)
 
-    port <- getPortSafe(appConfig.server.port)
+      port <- getPortSafe(appConfig.server.port)
 
-    program <- appConfig.transport.`type` match {
-      case "http" =>
-        for {
-          endpoints <- IO {
-            List(
-              LinkHandler(linkUsecase),
-            ).flatMap(_.endpoints)
-          }
+      program <- appConfig.transport.`type` match {
+        case "http" =>
+          for {
+            endpoints <- IO {
+              List(
+                LinkHandler(linkUsecase),
+              ).flatMap(_.endpoints)
+            }
 
-          swaggerEndpoint = SwaggerInterpreter().fromServerEndpoints[IO](
-            endpoints,
-            "Bot API",
-            "1.0.0"
-          )
-
-          routes = Http4sServerInterpreter[IO]()
-            .toRoutes(swaggerEndpoint ++ endpoints)
-
-          server = EmberServerBuilder
-            .default[IO]
-            .withHost(Host.fromString("0.0.0.0").get)
-            .withPort(port)
-            .withHttpApp(Router("/" -> routes).orNotFound)
-            .build
-            .evalTap(server =>
-              logger.info(
-                s"Server available at http://0.0.0.0:${server.address.getPort}"
-              )
+            swaggerEndpoint = SwaggerInterpreter().fromServerEndpoints[IO](
+              endpoints,
+              "Bot API",
+              "1.0.0"
             )
 
-          _ <- List(server.useForever, bot.start()).parSequence
-        } yield ()
+            routes = Http4sServerInterpreter[IO]()
+              .toRoutes(swaggerEndpoint ++ endpoints)
 
-      case "kafka" =>
-        for {
-          kafkaConsumer <- KafkaConsumer.resource(
-            ConsumerSettings[IO, String, Either[Throwable, List[LinkUpdate]]]
-              .withProperties(appConfig.transport.kafka.properties)
-          ).allocated.map(_._1)
+            server = EmberServerBuilder
+              .default[IO]
+              .withHost(Host.fromString("0.0.0.0").get)
+              .withPort(port)
+              .withHttpApp(Router("/" -> routes).orNotFound)
+              .build
+              .evalTap(server =>
+                logger.info(
+                  s"Server available at http://0.0.0.0:${server.address.getPort}"
+                )
+              )
 
-          kafkaProcess <- new KafkaLinkUpdatesConsumer[IO](
-            consumer = kafkaConsumer,
-            linkUsecase = linkUsecase,
-            logger = logger,
-            topic = appConfig.transport.kafka.topic
-          ).process.start
+            _ <- List(server.useForever, bot.start()).parSequence
+          } yield ()
 
-          _ <- List(bot.start(), kafkaProcess.join).parSequence
-        } yield ()
+        case "kafka" =>
+          for {
+            kafkaConsumer <- KafkaConsumer.resource(
+              ConsumerSettings[IO, String, Either[Throwable, List[LinkUpdate]]]
+                .withProperties(appConfig.transport.kafka.properties)
+            ).allocated.map(_._1)
 
-      case other =>
-        IO.raiseError(new RuntimeException(s"Unsupported transport type: $other"))
-    }
+            kafkaProcess <- new KafkaLinkUpdatesConsumer[IO](
+              consumer = kafkaConsumer,
+              linkUsecase = linkUsecase,
+              logger = logger,
+              topic = appConfig.transport.kafka.topic
+            ).process.start
 
-  } yield ExitCode.Success
+            _ <- List(bot.start(), kafkaProcess.join).parSequence
+          } yield ()
+
+        case other =>
+          IO.raiseError(new RuntimeException(s"Unsupported transport type: $other"))
+      }
+
+    } yield ExitCode.Success
 }

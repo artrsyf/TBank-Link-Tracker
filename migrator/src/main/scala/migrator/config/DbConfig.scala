@@ -6,12 +6,12 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class DbConfig(
-    driver: String,
-    host: String,
-    port: Int,
-    db: String,
-    user: String,
-    password: String
+  driver: String,
+  host: String,
+  port: Int,
+  db: String,
+  user: String,
+  password: String
 ) derives ConfigReader:
   lazy val url: String = s"jdbc:postgresql://$host:$port/$db"
 

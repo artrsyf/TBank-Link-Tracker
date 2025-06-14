@@ -15,9 +15,9 @@ import linkscrapper.link.domain.model
 import linkscrapper.link.repository
 
 final class InMemoryLinkRepository(
-    linkData: Ref[IO, Map[String, model.Link]],
-    userLinkData: Ref[IO, Map[(Long, Long), model.UserLink]],
-    logger: Logger[IO],
+  linkData: Ref[IO, Map[String, model.Link]],
+  userLinkData: Ref[IO, Map[(Long, Long), model.UserLink]],
+  logger: Logger[IO],
 ) extends repository.LinkRepository[IO]:
   private def generateLinkId(): IO[Long] =
     IO(Random.between(1L, 999999L))

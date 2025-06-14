@@ -6,7 +6,7 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class ServerConfig(
-    port: Int,
+  port: Int,
 ) derives ConfigReader
 
 object ServerConfig:

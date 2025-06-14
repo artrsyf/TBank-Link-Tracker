@@ -14,8 +14,8 @@ import linkscrapper.chat.domain.dto.ChatEntityToModel
 import linkscrapper.chat.domain.model.Chat
 
 final class PostgresChatRepository(
-    transactor: Transactor[IO],
-    logger: Logger[IO],
+  transactor: Transactor[IO],
+  logger: Logger[IO],
 ) extends repository.ChatRepository[IO]:
   override def create(chatEntity: entity.Chat): IO[model.Chat] =
     val createdAt = Instant.now()

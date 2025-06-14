@@ -7,9 +7,9 @@ import pureconfig.configurable.genericMapReader
 import linkscrapper.config.TransportConfig
 
 final case class AppConfig(
-    telegram: TelegramConfig,
-    server: ServerConfig,
-    transport: TransportConfig
+  telegram: TelegramConfig,
+  server: ServerConfig,
+  transport: TransportConfig
 ) derives ConfigReader
 
 object AppConfig:

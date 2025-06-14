@@ -78,10 +78,10 @@ object Commands {
 }
 
 class TelegramBotPresenter[F[_]: Async: Parallel](
-    linkRepo: LinkRepository[F],
-    chatRepo: ChatRepository[F],
-    dialogRepo: DialogRepository[F],
-    telegramConfig: TelegramConfig,
+  linkRepo: LinkRepository[F],
+  chatRepo: ChatRepository[F],
+  dialogRepo: DialogRepository[F],
+  telegramConfig: TelegramConfig,
 )(using api: Api[F], logger: Logger[F]) extends LongPollBot[F](api) with LinkPresenter[F] {
   private val cancelTagsButton =
     InlineKeyboardButtons.callbackData(text = "Пропустить", callbackData = CallbackEvents.cancelTagsButtonPressed)

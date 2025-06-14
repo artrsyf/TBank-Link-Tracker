@@ -20,14 +20,14 @@ object ChatMiddlewares:
       }
 
 class LinkHandler(
-    chatUsecase: ChatUsecase[IO],
-    linkUsecase: LinkUsecase[IO],
-    logger: Logger[IO]
+  chatUsecase: ChatUsecase[IO],
+  linkUsecase: LinkUsecase[IO],
+  logger: Logger[IO]
 ) extends Controller[IO]:
   private val checkChat = ChatMiddlewares.chatValidation(chatUsecase.check)
 
   private def withChatValidation[A, B](
-      handlerFunc: Long => IO[Either[dto.ApiErrorResponse, B]]
+    handlerFunc: Long => IO[Either[dto.ApiErrorResponse, B]]
   ): Long => IO[Either[dto.ApiErrorResponse, B]] =
     chatId =>
       checkChat(chatId).flatMap {
@@ -80,8 +80,8 @@ class LinkHandler(
 
 object LinkHandler:
   def make(
-      chatUsecase: ChatUsecase[IO],
-      linkUsecase: LinkUsecase[IO],
-      logger: Logger[IO],
+    chatUsecase: ChatUsecase[IO],
+    linkUsecase: LinkUsecase[IO],
+    logger: Logger[IO],
   ): LinkHandler =
     LinkHandler(chatUsecase, linkUsecase, logger)

@@ -6,7 +6,7 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class AppConfig(
-    db: DbConfig,
+  db: DbConfig,
 ) derives ConfigReader
 
 object AppConfig:

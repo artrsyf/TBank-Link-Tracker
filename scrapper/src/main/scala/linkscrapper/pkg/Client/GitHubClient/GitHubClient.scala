@@ -15,14 +15,14 @@ import tethys.jackson._
 import linkscrapper.pkg.Client.{LinkClient, LinkUpdate}
 
 final case class GitHubUser(
-    login: String
+  login: String
 ) derives JsonReader
 
 final case class GitHubItem(
-    title: String,
-    user: GitHubUser,
-    created_at: String,
-    body: Option[String],
+  title: String,
+  user: GitHubUser,
+  created_at: String,
+  body: Option[String],
 ) derives JsonReader
 
 trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
@@ -67,7 +67,7 @@ trait GitHubClient[F[_]: Monad] extends LinkClient[F]:
 
 object GitHubClient:
   final private class Impl(
-      client: SttpBackend[IO, Any],
+    client: SttpBackend[IO, Any],
   ) extends GitHubClient[IO]:
     private val gitHubApiUrl = "https://api.github.com/repos"
 

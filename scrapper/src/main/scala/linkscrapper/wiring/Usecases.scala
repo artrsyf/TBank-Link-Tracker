@@ -9,8 +9,8 @@ import linkscrapper.link.usecase.LinkUsecase
 import org.typelevel.log4cats.Logger
 
 final case class Usecases(
-    chatUsecase: ChatUsecase[IO],
-    linkUsecase: LinkUsecase[IO],
+  chatUsecase: ChatUsecase[IO],
+  linkUsecase: LinkUsecase[IO],
 )
 
 object Usecases:

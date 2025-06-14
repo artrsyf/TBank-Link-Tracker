@@ -33,11 +33,11 @@ case object CronJob  extends ParentJob
 case object CheckJob extends ParentJob
 
 class QuartzScheduler(
-    schedulerConfig: SchedulerConfig,
-    linkUsecase: LinkUsecase[IO],
-    linkPublisher: LinkPublisher[IO],
-    clients: Map[String, LinkClient[IO]],
-    logger: Logger[IO],
+  schedulerConfig: SchedulerConfig,
+  linkUsecase: LinkUsecase[IO],
+  linkPublisher: LinkPublisher[IO],
+  clients: Map[String, LinkClient[IO]],
+  logger: Logger[IO],
 ) {
   private def fetchLinkUpdates: IO[Unit] = {
     linkUsecase.streamAllLinks.evalMap { link =>

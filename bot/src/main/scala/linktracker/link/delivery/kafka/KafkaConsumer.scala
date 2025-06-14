@@ -14,10 +14,10 @@ import linktracker.link.domain.dto.LinkUpdate
 import linktracker.link.usecase.LinkUsecase
 
 class KafkaLinkUpdatesConsumer[F[_]: Async](
-    consumer: KafkaConsumer[F, String, Either[Throwable, List[LinkUpdate]]],
-    linkUsecase: LinkUsecase[F],
-    topic: String,
-    logger: Logger[F]
+  consumer: KafkaConsumer[F, String, Either[Throwable, List[LinkUpdate]]],
+  linkUsecase: LinkUsecase[F],
+  topic: String,
+  logger: Logger[F]
 ) {
   import linktracker.link.domain.dto.LinkUpdate.given
 
@@ -29,7 +29,7 @@ class KafkaLinkUpdatesConsumer[F[_]: Async](
         .stream
         .evalMap { committable =>
           val valueEither = committable.record.value
-          val offset = committable.offset
+          val offset      = committable.offset
 
           valueEither match {
             case Right(updates) =>
@@ -37,7 +37,7 @@ class KafkaLinkUpdatesConsumer[F[_]: Async](
                 linkUsecase.serveLinks(updates).attempt.flatMap {
                   case Right(_) =>
                     logger.info(s"Successfully processed ${updates.size} updates") *>
-                    offset.commit
+                      offset.commit
                   case Left(err) =>
                     logger.error(s"Failed to process updates: ${err.getMessage}")
                 }

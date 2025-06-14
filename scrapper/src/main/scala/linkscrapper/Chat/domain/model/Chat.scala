@@ -6,8 +6,8 @@ import doobie.implicits.javatimedrivernative.*
 import doobie.Read
 
 final case class Chat(
-    chatId: Long,
-    createdAt: Instant
+  chatId: Long,
+  createdAt: Instant
 )
 
 object Chat {

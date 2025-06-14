@@ -31,7 +31,7 @@ object Main extends IOApp:
   override def run(args: List[String]): IO[ExitCode] =
     for {
       appConfig <- AppConfig.load
-      hikariConfig = makeHikariConfig(appConfig)
+      hikariConfig   = makeHikariConfig(appConfig)
       hikariResource = createHikariTransactorResource(hikariConfig).map(Some(_))
 
       exitCode <- appConfig.db.inUse match
@@ -59,49 +59,49 @@ object Main extends IOApp:
   private def resources(
     hikariTransactor: Option[HikariTransactor[IO]],
     appConfig: AppConfig
-  ): Resource[IO, (
-    HikariTransactor[IO],
-    LinkClient[IO],
-    LinkClient[IO],
-    sttp.client3.SttpBackend[IO, _],
-    linkscrapper.pkg.Publisher.LinkPublisher[IO]
-  )] = for {
-    backend <- HttpClientCatsBackend.resource[IO]()
+  ): Resource[
+    IO,
+    (
+      HikariTransactor[IO],
+      LinkClient[IO],
+      LinkClient[IO],
+      sttp.client3.SttpBackend[IO, _],
+      linkscrapper.pkg.Publisher.LinkPublisher[IO]
+    )
+  ] =
+    for {
+      backend <- HttpClientCatsBackend.resource[IO]()
 
-    githubClient        = GitHubClient.make(backend)
-    stackoverflowClient = StackOverflowClient.make(backend)
+      githubClient        = GitHubClient.make(backend)
+      stackoverflowClient = StackOverflowClient.make(backend)
 
-    linkPublisher <- appConfig.transport.`type` match
-      case "kafka" =>
-        createKafkaProducerResource(appConfig.transport.kafka).map { producer =>
-          new KafkaLinkPublisher(
-            appConfig.transport.kafka.topic,
-            producer,
-            logger
-          )
-        }
-      case "http" =>
-        Resource.pure[IO, linkscrapper.pkg.Publisher.LinkPublisher[IO]](
-          HttpPublisher(appConfig.transport.http.updatesHandlerEndpoint, backend, logger)
-        )
-      case other =>
-        Resource.eval(IO.raiseError(new RuntimeException(s"Unsupported transport type: $other")))
+      linkPublisherResource: Resource[IO, linkscrapper.pkg.Publisher.LinkPublisher[IO]] =
+        appConfig.transport.`type` match
+          case "kafka" =>
+            createKafkaProducerResource(appConfig.transport.kafka).map { producer =>
+              new KafkaLinkPublisher(appConfig.transport.kafka.topic, producer, logger)
+            }
+          case "http" =>
+            Resource.pure(HttpPublisher(appConfig.transport.http.updatesHandlerEndpoint, backend, logger))
+          case other =>
+            Resource.eval(IO.raiseError(new RuntimeException(s"Unsupported transport type: $other")))
 
-  } yield (
-    hikariTransactor.getOrElse(throw new IllegalStateException("Missing transactor")),
-    githubClient,
-    stackoverflowClient,
-    backend,
-    linkPublisher
-  )
+      linkPublisher <- linkPublisherResource
+
+    } yield (
+      hikariTransactor.getOrElse(throw new IllegalStateException("Missing transactor")),
+      githubClient,
+      stackoverflowClient,
+      backend,
+      linkPublisher
+    )
 
   private def runApp(
-      hikariTransactor: Option[HikariTransactor[IO]],
-      appConfig: AppConfig
+    hikariTransactor: Option[HikariTransactor[IO]],
+    appConfig: AppConfig
   ): IO[ExitCode] =
     resources(hikariTransactor, appConfig).use {
       case (transactor, githubClient, stackoverflowClient, backend, linkPublisher) =>
-
         val clients = Map(
           "https://github.com/"        -> githubClient,
           "https://stackoverflow.com/" -> stackoverflowClient,

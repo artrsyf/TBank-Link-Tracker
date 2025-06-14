@@ -12,40 +12,40 @@ import linkscrapper.pkg.Publisher.LinkPublisher
 import linkscrapper.link.domain.dto.LinkUpdate
 
 class KafkaLinkPublisher(
-    topic: String,
-    producer: KafkaProducer[IO, String, String],
-    logger: Logger[IO]
+  topic: String,
+  producer: KafkaProducer[IO, String, String],
+  logger: Logger[IO]
 ) extends LinkPublisher[IO] {
 
   override def publishLinks(linkUpdates: List[LinkUpdate]): IO[Unit] = {
     if (linkUpdates.isEmpty) {
       logger.info("Notjing to update, skipping")
     } else {
-      val json = linkUpdates.asJson
+      val json   = linkUpdates.asJson
       val record = ProducerRecord(topic, "", json)
-      
+
       for {
         _ <- logger.info(s"Sending updates to kafka topic $topic | linkCount=${linkUpdates.length}")
-        
+
         result <- producer.produceOne(record).flatten.attempt
-        
+
         _ <- result match {
           case Right(responseChunk) =>
             Stream
-                .chunk(responseChunk)
-                .evalTap { case (_, metadata) =>
+              .chunk(responseChunk)
+              .evalTap { case (_, metadata) =>
                 logger.info(
-                    s"Successfully published ${linkUpdates.length} updates to Kafka | " +
+                  s"Successfully published ${linkUpdates.length} updates to Kafka | " +
                     s"topic=${metadata.topic()} | partition=${metadata.partition()} | offset=${metadata.offset()}"
                 )
-                }
-                .compile
-                .drain
-          
+              }
+              .compile
+              .drain
+
           case Left(error) =>
             logger.error(
               s"Failed to publish ${linkUpdates.length} updates to Kafka | " +
-              s"error=${error.getMessage}"
+                s"error=${error.getMessage}"
             )
         }
       } yield ()

@@ -16,7 +16,7 @@ trait ChatUsecase[F[_]]:
 
 object ChatUsecase:
   final private class Impl(
-      chatRepo: ChatRepository[IO],
+    chatRepo: ChatRepository[IO],
   ) extends ChatUsecase[IO]:
     override def create(chatEntity: entity.Chat): IO[Either[ChatError, entity.Chat]] =
       for
