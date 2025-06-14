@@ -40,10 +40,10 @@ class TelegramBotPresenterSpec extends AnyFunSuite with Matchers with MockitoSug
   private val mockApi        = mock[Api[IO]]
   private val mockDialogRepo = mock[DialogRepository[IO]]
   private val mockBackend    = mock[SttpBackend[IO, Any]]
-  private val config         = TelegramConfig("fake", "http://localhost:8080")
+  private val config         = TelegramConfig("fake")
   private val logger         = Slf4jLogger.getLogger[IO]
-  private val linkRepository = new HttpLinkRepository(config.scrapperServiceUrl, mockBackend, logger)
-  private val chatRepository = new HttpChatRepository(config.scrapperServiceUrl, mockBackend, logger)
+  private val linkRepository = new HttpLinkRepository("http://localhost:8080", mockBackend, logger)
+  private val chatRepository = new HttpChatRepository("http://localhost:8080", mockBackend, logger)
 
   private def createPresenter() = new TelegramBotPresenter[IO](
     linkRepository,
