@@ -18,6 +18,8 @@ services:
         condition: service_healthy
       scrapper:
         condition: service_started
+      bot_service_redis:
+        condition: service_started
     networks:
       - link-scrapper-network
 
@@ -146,6 +148,16 @@ services:
               cub kafka-ready -b kafka:9093 1 30 && \
               echo Creating topics... && \
               kafka-topics --create --bootstrap-server kafka:9093 --partitions 1 --replication-factor 1 --topic links-update'"
+    networks:
+      - link-scrapper-network
+
+  bot_service_redis:
+    container_name: bot_service_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    expose:
+      - 6379
     networks:
       - link-scrapper-network
 

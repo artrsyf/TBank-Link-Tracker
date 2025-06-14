@@ -91,6 +91,11 @@ object Dependencies {
     "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion
   )
 
+  // redis
+  val redisVersion = "2.0.0"
+
+  val redis = "dev.profunktor" %% "redis4cats-effects" % redisVersion
+
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
     catsEffect,
@@ -116,5 +121,6 @@ object Dependencies {
     log4catsCore,
     scalaTest,
     mockito,
+    redis,
   ) ++ rdbmsDependencies ++ testContainers ++ kafkaDependencies
 }

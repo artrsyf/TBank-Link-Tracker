@@ -9,7 +9,8 @@ import linkscrapper.config.TransportConfig
 final case class AppConfig(
   telegram: TelegramConfig,
   server: ServerConfig,
-  transport: TransportConfig
+  transport: TransportConfig,
+  cache: CacheConfig
 ) derives ConfigReader
 
 object AppConfig:

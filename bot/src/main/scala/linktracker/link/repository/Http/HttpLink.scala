@@ -11,16 +11,28 @@ import tethys.jackson._
 import linktracker.link.repository
 import linktracker.link.domain.dto
 import linktracker.link.domain.entity.ResponseMessage
+import linktracker.link.cache.LinkCache
 
 final class HttpLinkRepository(
   url: String,
   client: SttpBackend[IO, Any],
+  cache: LinkCache[IO],
   logger: Logger[IO]
 ) extends repository.LinkRepository[IO]:
   private def basicSecuredRequest(chatId: Long) = basicRequest
     .header("Tg-Chat-Id", chatId.toString)
 
   override def getLinks(chatId: Long): IO[Either[ResponseMessage, List[dto.LinkResponse]]] =
+    for {
+      cached <- cache.get(chatId)
+      result <- if cached.nonEmpty then
+        logger.debug(s"Returning cached links | chatId=$chatId") *>
+          IO.pure(Right(cached))
+      else
+        fetchLinks(chatId)
+    } yield result
+
+  def fetchLinks(chatId: Long): IO[Either[ResponseMessage, List[dto.LinkResponse]]] =
     val request = basicSecuredRequest(chatId)
       .get(uri"${url}/links")
 
@@ -32,7 +44,7 @@ final class HttpLinkRepository(
               if linkList.isEmpty then
                 IO.pure(Left(ResponseMessage.EmptyLinkListMessage))
               else
-                IO.pure(Right(linkList))
+                cache.set(linkList, chatId) *> IO.pure(Right(linkList))
             case Left(error) =>
               logger.warn(s"Can't parse JSON from scrapper-service response | error=${error.getMessage()}") *>
                 IO.pure(Left(ResponseMessage.FailedParseJsonMessage(error.getMessage())))
@@ -52,20 +64,21 @@ final class HttpLinkRepository(
 
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
-        logger.info(s"Successful track request to scrapper")
-        IO.pure(ResponseMessage.SuccessfullLinkAdditionMessage)
+        logger.info(s"Successful track request to scrapper") *>
+          cache.delete(chatId) *>
+          IO.pure(ResponseMessage.SuccessfullLinkAdditionMessage)
 
       case Right(response) =>
-        logger.warn(s"Unexpected track response status code | code=${response.code}")
-        IO.pure(ResponseMessage.FailedLinkAdditionMessage)
+        logger.warn(s"Unexpected track response status code | code=${response.code}") *>
+          IO.pure(ResponseMessage.FailedLinkAdditionMessage)
 
       case Left(ex: SttpClientException.ConnectException) =>
-        logger.error(s"Can't send track request to scrapper-service | error=${ex}")
-        IO.pure(ResponseMessage.ServerUnavailableMessage)
+        logger.error(s"Can't send track request to scrapper-service | error=${ex}") *>
+          IO.pure(ResponseMessage.ServerUnavailableMessage)
 
       case Left(error) =>
-        logger.error(s"Can't send track request to scrapper-service | error=${error.getMessage}")
-        IO.pure(ResponseMessage.ErrorMessage(error.getMessage))
+        logger.error(s"Can't send track request to scrapper-service | error=${error.getMessage}") *>
+          IO.pure(ResponseMessage.ErrorMessage(error.getMessage))
     }
 
   override def delete(removeLinkRequest: dto.RemoveLinkRequest, chatId: Long): IO[ResponseMessage] =
@@ -76,18 +89,19 @@ final class HttpLinkRepository(
 
     client.send(request).attempt.flatMap {
       case Right(response) if response.code == StatusCode.Ok =>
-        logger.info(s"Successful untrack request to scrapper")
-        IO.pure(ResponseMessage.SuccessfullLinkDeletionMessage)
+        logger.info(s"Successful untrack request to scrapper") *>
+          cache.delete(chatId) *>
+          IO.pure(ResponseMessage.SuccessfullLinkDeletionMessage)
 
       case Right(response) =>
-        logger.warn(s"Unexpected untrack response status code | code=${response.code}")
-        IO.pure(ResponseMessage.FailedLinkDeltionMessage)
+        logger.warn(s"Unexpected untrack response status code | code=${response.code}") *>
+          IO.pure(ResponseMessage.FailedLinkDeltionMessage)
 
       case Left(ex: SttpClientException.ConnectException) =>
-        logger.error(s"Can't send untrack request to scrapper-service | error=${ex}")
-        IO.pure(ResponseMessage.ServerUnavailableMessage)
+        logger.error(s"Can't send untrack request to scrapper-service | error=${ex}") *>
+          IO.pure(ResponseMessage.ServerUnavailableMessage)
 
       case Left(error) =>
-        logger.error(s"Can't send untrack request to scrapper-service | error=${error.getMessage}")
-        IO.pure(ResponseMessage.ErrorMessage(error.getMessage))
+        logger.error(s"Can't send untrack request to scrapper-service | error=${error.getMessage}") *>
+          IO.pure(ResponseMessage.ErrorMessage(error.getMessage))
     }
