@@ -15,8 +15,8 @@ import linkscrapper.link.repository.Postgres.PostgresLinkRepository
 import linkscrapper.link.domain.model.UserLink
 
 final case class Repositories(
-    chatRepo: ChatRepository[IO],
-    linkRepo: LinkRepository[IO],
+  chatRepo: ChatRepository[IO],
+  linkRepo: LinkRepository[IO],
 )
 
 object Repositories:

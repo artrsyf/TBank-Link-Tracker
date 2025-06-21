@@ -17,15 +17,15 @@ import linkscrapper.pkg.Client.{LinkClient, LinkUpdate}
 final case class StackUser(display_name: String) derives JsonReader
 
 final case class StackAnswer(
-    creation_date: Long,
-    body: String,
-    owner: StackUser
+  creation_date: Long,
+  body: String,
+  owner: StackUser
 ) derives JsonReader
 
 final case class StackComment(
-    creation_date: Long,
-    body: String,
-    owner: StackUser
+  creation_date: Long,
+  body: String,
+  owner: StackUser
 ) derives JsonReader
 
 final case class StackAnswerResponse(items: List[StackAnswer]) derives JsonReader

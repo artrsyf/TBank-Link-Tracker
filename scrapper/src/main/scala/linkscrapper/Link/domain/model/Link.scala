@@ -8,9 +8,9 @@ import doobie.Read
 type Links = List[Link]
 
 final case class Link(
-    id: Long,
-    url: String,
-    updatedAt: Instant,
+  id: Long,
+  url: String,
+  updatedAt: Instant,
 )
 
 object Link {

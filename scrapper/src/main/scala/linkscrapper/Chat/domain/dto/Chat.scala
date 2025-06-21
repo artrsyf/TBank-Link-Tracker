@@ -9,7 +9,7 @@ import linkscrapper.chat.domain.entity
 import linkscrapper.chat.domain.model
 
 final case class ApiErrorResponse(
-    error: String,
+  error: String,
 ) derives Schema, JsonReader, JsonWriter
 
 def ChatEntityToModel(chatEntity: entity.Chat, createdAt: Instant): model.Chat =

@@ -14,7 +14,11 @@ services:
     env_file:
       - ../bot/src/main/resources/.env
     depends_on:
+      kafka:
+        condition: service_healthy
       scrapper:
+        condition: service_started
+      bot_service_redis:
         condition: service_started
     networks:
       - link-scrapper-network
@@ -29,6 +33,8 @@ services:
     env_file:
       - ../scrapper/src/main/resources/.env
     depends_on:
+      kafka:
+        condition: service_healthy
       migrator:
         condition: service_completed_successfully
     networks:
@@ -76,6 +82,82 @@ services:
       - "5050:80"
     depends_on:
       - scrapper_postgres
+    networks:
+      - link-scrapper-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SASL_ENABLED: "false"
+    expose:
+      - 2181
+    healthcheck:
+      test: "nc -z localhost 2181 || exit -1"
+      start_period: 10s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    networks:
+      - link-scrapper-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    expose:
+      - 9093
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_ADVERTISED_LISTENERS: "BROKER://kafka:9093,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "BROKER"
+      KAFKA_BROKER_ID: "1"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      ZOOKEEPER_SASL_ENABLED: "false"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: "nc -z localhost 9093 || exit -1"
+      start_period: 10s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    networks:
+      - link-scrapper-network
+
+  kafka_setup:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka_setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: ignored
+      KAFKA_ZOOKEEPER_CONNECT: ignored
+    command: "bash -c 'echo Waiting for Kafka to be ready... && \
+              cub kafka-ready -b kafka:9093 1 30 && \
+              echo Creating topics... && \
+              kafka-topics --create --bootstrap-server kafka:9093 --partitions 1 --replication-factor 1 --topic links-update'"
+    networks:
+      - link-scrapper-network
+
+  bot_service_redis:
+    container_name: bot_service_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    expose:
+      - 6379
     networks:
       - link-scrapper-network
 

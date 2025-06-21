@@ -6,9 +6,9 @@ import tethys._
 import tethys.jackson._
 
 case class LinkUpdate(
-    url: String,
-    updatedAt: Instant,
-    description: String,
+  url: String,
+  updatedAt: Instant,
+  description: String,
 ) derives JsonWriter
 
 trait LinkClient[F[_]]:

@@ -6,9 +6,8 @@ import pureconfig.ConfigConvert.catchReadError
 import pureconfig.configurable.genericMapReader
 
 final case class SchedulerConfig(
-    cronExpression: String,
-    updatesHandlerUrl: String,
-    threadNumber: Int,
+  cronExpression: String,
+  threadNumber: Int
 ) derives ConfigReader
 
 object SchedulerConfig:

@@ -56,33 +56,45 @@ object Dependencies {
   // logging
   val log4catsVersion = "2.7.0"
 
-  val log4catsSlf = "org.typelevel" %% "log4cats-slf4j"  % log4catsVersion
-  val log4catsCore = "org.typelevel" %% "log4cats-core"   % log4catsVersion
+  val log4catsSlf  = "org.typelevel" %% "log4cats-slf4j" % log4catsVersion
+  val log4catsCore = "org.typelevel" %% "log4cats-core"  % log4catsVersion
 
   // testing
-  val scalaTest = "org.scalatest" %% "scalatest" % "3.2.18" % Test
-  val mockito = "org.scalatestplus" %% "mockito-4-11" % "3.2.18.0" % Test
+  val scalaTest = "org.scalatest"     %% "scalatest"    % "3.2.18"   % Test
+  val mockito   = "org.scalatestplus" %% "mockito-4-11" % "3.2.18.0" % Test
 
   // RDMBS
-  val doobieVersion = "1.0.0-RC8"
+  val doobieVersion    = "1.0.0-RC8"
   val liquibaseVersion = "4.27.0"
 
   val rdbmsDependencies: List[ModuleID] = List(
-    "org.liquibase"  % "liquibase-core"  % liquibaseVersion,
-    "org.tpolecat"  %% "doobie-core"     % doobieVersion,
-    "org.tpolecat"  %% "doobie-postgres" % doobieVersion,
-    "org.tpolecat"  %% "doobie-hikari"   % doobieVersion,
-    "org.tpolecat"  %% "doobie-h2"       % doobieVersion
+    "org.liquibase" % "liquibase-core"  % liquibaseVersion,
+    "org.tpolecat" %% "doobie-core"     % doobieVersion,
+    "org.tpolecat" %% "doobie-postgres" % doobieVersion,
+    "org.tpolecat" %% "doobie-hikari"   % doobieVersion,
+    "org.tpolecat" %% "doobie-h2"       % doobieVersion
   )
 
   // testcontainers
   val testcontainersScalaVersion = "0.43.0"
 
   val testContainers: List[ModuleID] = List(
-    "com.dimafeng" %% "testcontainers-scala-scalatest" % testcontainersScalaVersion % Test,
-    "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
-    "org.postgresql" % "postgresql" % "42.5.1"
-)
+    "com.dimafeng"  %% "testcontainers-scala-scalatest"  % testcontainersScalaVersion % Test,
+    "com.dimafeng"  %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
+    "org.postgresql" % "postgresql"                      % "42.5.1"
+  )
+
+  // kafka
+  val fs2KafkaVersion = "3.6.0"
+
+  val kafkaDependencies = List(
+    "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion
+  )
+
+  // redis
+  val redisVersion = "2.0.0"
+
+  val redis = "dev.profunktor" %% "redis4cats-effects" % redisVersion
 
   val allDeps: Seq[ModuleID] = Seq(
     catsCore,
@@ -109,5 +121,6 @@ object Dependencies {
     log4catsCore,
     scalaTest,
     mockito,
-  ) ++ rdbmsDependencies ++ testContainers
+    redis,
+  ) ++ rdbmsDependencies ++ testContainers ++ kafkaDependencies
 }

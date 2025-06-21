@@ -21,8 +21,8 @@ class InMemoryLinkRepositorySpec extends AnyFunSuite with Matchers {
   private def newLinkEntity = LinkAddRequestToEntity(newAddRequest, testChatId)
 
   private def createRepo(
-      linkState: Map[String, model.Link] = Map.empty,
-      userLinkState: Map[(Long, Long), model.UserLink] = Map.empty
+    linkState: Map[String, model.Link] = Map.empty,
+    userLinkState: Map[(Long, Long), model.UserLink] = Map.empty
   ): IO[InMemoryLinkRepository] = for {
     linkRef     <- Ref.of[IO, Map[String, model.Link]](linkState)
     userLinkRef <- Ref.of[IO, Map[(Long, Long), model.UserLink]](userLinkState)

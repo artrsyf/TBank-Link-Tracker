@@ -13,7 +13,7 @@ import linkscrapper.chat.usecase.ChatUsecase
 import linkscrapper.pkg.Controller.Controller
 
 class ChatHandler(
-    chatUsecase: ChatUsecase[IO],
+  chatUsecase: ChatUsecase[IO],
 ) extends Controller[IO]:
   private val createChat: ServerEndpoint[Any, IO] =
     ChatEndpoints.createChatEndpoint.serverLogic { chatId =>
@@ -38,6 +38,6 @@ class ChatHandler(
 
 object ChatHandler:
   def make(
-      chatUsecase: ChatUsecase[IO],
+    chatUsecase: ChatUsecase[IO],
   ): ChatHandler =
     ChatHandler(chatUsecase)

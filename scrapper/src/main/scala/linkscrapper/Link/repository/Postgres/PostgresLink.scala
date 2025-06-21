@@ -14,8 +14,8 @@ import linkscrapper.link.domain.{dto, entity, model}
 import linkscrapper.link.repository
 
 final class PostgresLinkRepository(
-    transactor: Transactor[IO],
-    logger: Logger[IO],
+  transactor: Transactor[IO],
+  logger: Logger[IO],
 ) extends repository.LinkRepository[IO]:
   private def now = IO.realTimeInstant
 

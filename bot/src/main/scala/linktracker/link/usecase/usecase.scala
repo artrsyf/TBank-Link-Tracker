@@ -12,7 +12,7 @@ trait LinkUsecase[F[_]]:
 
 object LinkUsecase:
   final private class Impl(
-      linkPresenter: LinkPresenter[IO],
+    linkPresenter: LinkPresenter[IO],
   ) extends LinkUsecase[IO]:
     override def serveLinks(linkUpdates: List[LinkUpdate]): IO[Unit] =
       for {
